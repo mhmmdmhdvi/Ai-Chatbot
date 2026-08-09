@@ -1,0 +1,35 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+backend/staticfiles/*
+!backend/staticfiles/.gitkeep
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Application data and backups
+data/documents/*
+!data/documents/.gitkeep
+backups/
+*.log
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,23 @@
+services:
+  db:
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      target: production
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: infra/nginx/Dockerfile
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    restart: unless-stopped
+    networks:
+      - app_network
