@@ -4,7 +4,7 @@
 
 This file is the working implementation plan for the AI Customer Assistant project. Keep it updated as decisions are made and phases are completed.
 
-Planning status: **Phase 2 backend implemented — create local accounts, then begin Phase 3**
+Planning status: **Phase 3 application implemented — physical touchscreen validation remains**
 
 AI provider integration remains deferred until provider eligibility and credentials are available. Non-AI application work can continue independently.
 
@@ -445,9 +445,9 @@ The live chatbot must not be publicly accessible, while customer names, phone nu
 - [x] Add a Persian login endpoint backed by Django authentication.
 - [x] Add logout and current-user endpoints.
 - [x] Do not add a registration endpoint.
-- [ ] Create a separate Django superuser for administration.
-- [ ] Create one normal active chatbot user through Django Admin.
-- [ ] Ensure the chatbot user is not staff and is not a superuser.
+- [x] Create a separate Django superuser for administration.
+- [x] Create one normal active chatbot user through Django Admin.
+- [x] Ensure the chatbot user is not staff and is not a superuser.
 - [x] Require authentication for all customer, conversation, and message endpoints; apply the same default to future AI endpoints.
 - [x] Rotate/renew the authenticated session through Django's standard login flow.
 - [x] Add `Customer`, `Conversation`, and `Message` models.
@@ -542,7 +542,7 @@ Keep AI disabled until Phase 4. Store customer messages normally and return `ai_
 ### Definition of Done
 
 - [x] Unauthenticated visitors cannot access customer, conversation, or message APIs.
-- [ ] The normal chatbot user can log in and log out.
+- [x] The normal chatbot user can log in and log out.
 - [x] The chatbot user role cannot access Django Admin.
 - [x] No public registration endpoint or page exists.
 - [x] Valid customers and conversations can be created.
@@ -577,23 +577,24 @@ The customer flow, accessibility, and touch ergonomics can be validated independ
 
 ### Tasks
 
-- [ ] Build a Persian `LoginPage` with username and password fields.
-- [ ] Add authentication state and a protected-route/loading state.
-- [ ] Redirect unauthenticated users to the login page.
-- [ ] Redirect authenticated users to the chatbot.
-- [ ] Add a controlled logout action for staff/operator use.
-- [ ] Build the name and phone form.
-- [ ] Build the chat message list and composer.
-- [ ] Add large touch targets and readable typography.
-- [ ] Use a Persian right-to-left layout throughout the customer experience.
-- [ ] Correctly isolate embedded left-to-right product names, numbers, URLs, and technical codes.
-- [ ] Add sending, loading, streaming, error, reconnect, and empty states.
-- [ ] Add start-new-conversation and confirmation behavior.
-- [ ] Add inactivity timeout that clears the customer's conversation but keeps the kiosk/application account logged in.
-- [ ] Return to the customer name/phone form after a manual or automatic customer reset.
-- [ ] Never show the previous customer's name, phone number, or messages to the next customer.
-- [ ] Prevent accidental double submission.
-- [ ] Test the on-screen keyboard and viewport behavior.
+- [x] Build a Persian `LoginPage` with username and password fields.
+- [x] Add authentication state and a protected loading/error state.
+- [x] Show unauthenticated users only the login page.
+- [x] Open the protected kiosk flow for authenticated users.
+- [x] Add a controlled logout action with confirmation for staff/operator use.
+- [x] Build the name and phone form.
+- [x] Build the chat message list and composer.
+- [x] Add large touch targets and readable typography.
+- [x] Use a Persian right-to-left layout throughout the customer experience.
+- [x] Correctly isolate embedded left-to-right product names, numbers, URLs, and technical codes.
+- [x] Add sending, loading, error, reconnect, offline, saved-message, and empty states.
+- [ ] Add the streaming state when AI streaming is implemented in Phase 4.
+- [x] Add start-new-conversation and confirmation behavior.
+- [x] Add a three-minute inactivity timeout with a 30-second warning that clears the customer but keeps the kiosk account logged in.
+- [x] Return to the customer name/phone form after a manual or automatic customer reset.
+- [x] Never show the previous customer's name, phone number, or messages to the next customer after reset.
+- [x] Prevent accidental double submission.
+- [ ] Test the Windows on-screen keyboard on the physical stand; responsive 390px and desktop viewport checks pass in software.
 
 ### Files/architecture
 
@@ -613,9 +614,8 @@ The customer flow, accessibility, and touch ergonomics can be validated independ
 
 - React
 - Tailwind CSS
-- React Router, because authenticated and unauthenticated pages now have distinct routes
 - Frontend test runner and component testing library
-- Avoid React Query and a router until they solve a demonstrated need
+- No React Router or React Query yet; the kiosk is one guarded screen flow and does not need URL routing or a data-cache layer.
 
 ### Database changes
 
@@ -627,7 +627,7 @@ Consume the Phase 2 authentication, customer, and conversation endpoints.
 
 ### AI considerations
 
-Use mock/placeholder assistant responses.
+Keep AI disabled. Store customer messages and show a clear Persian development notice; do not create fake assistant responses.
 
 ### Security considerations
 
@@ -649,15 +649,23 @@ Use mock/placeholder assistant responses.
 
 ### Definition of Done
 
-- [ ] Unauthenticated users see only the Persian login page.
-- [ ] Valid credentials open the protected chatbot.
-- [ ] Invalid credentials show a generic Persian error.
-- [ ] Customer-session reset does not unintentionally log out the kiosk account.
-- [ ] Starting a new customer returns to the name/phone form with no previous customer data visible.
-- [ ] Customer intake and mock conversation work end to end.
+- [x] Unauthenticated users see only the Persian login page.
+- [x] Valid credentials open the protected chatbot.
+- [x] Invalid credentials show a generic Persian error.
+- [x] Customer-session reset does not unintentionally log out the kiosk account.
+- [x] Starting a new customer returns to the name/phone form with no previous customer data visible.
+- [x] Customer intake and stored-message conversation work end to end while AI is disabled.
 - [ ] The interface is comfortable on the target touchscreen size.
-- [ ] Persian RTL layout and embedded left-to-right content display correctly.
-- [ ] Old session information is cleared reliably.
+- [x] Persian RTL layout and embedded left-to-right content display correctly in software viewport checks.
+- [x] Old session information is cleared reliably after manual or automatic reset.
+
+Phase 3 software verification completed on 2026-08-09:
+
+- Six frontend interaction tests passed: login gate, generic login error, valid login flow, expired-session handling, confirmed logout, customer intake, mixed Persian/English message storage, and customer reset.
+- Frontend production build passed.
+- Desktop visual inspection passed at 1440 × 900.
+- Narrow viewport layout passed at 390 × 844 with no horizontal overflow.
+- Physical stand, touch comfort, and Windows on-screen-keyboard testing remain pending.
 
 ---
 
@@ -1384,7 +1392,7 @@ Preferred production starting point for additional headroom:
 
 ## Next action
 
-1. Create a separate Django superuser and normal non-staff kiosk account.
-2. Begin Phase 3: build the Persian RTL login, customer intake, and chatbot screens against the completed backend APIs.
-3. Keep AI/provider work disabled until eligibility is confirmed and credentials are available.
-4. Before using real customer data, define the consent, retention, and administrator-access rules.
+1. Open the current application on the touchscreen stand and verify touch comfort, Persian typing, and the Windows on-screen keyboard.
+2. Before using real customer data, define consent text, retention duration, and administrator-access rules.
+3. Keep AI/provider work disabled until provider eligibility is confirmed and credentials are available.
+4. After that confirmation, begin Phase 4 without changing the completed login, customer, or conversation flow.

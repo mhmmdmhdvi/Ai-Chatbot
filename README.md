@@ -4,9 +4,11 @@ A Docker-first Persian touchscreen customer assistant built with React, Tailwind
 
 ## Current status
 
-Phase 2 backend implementation is complete. The project now has protected Django session login, CSRF handling, failed-login lockout, Iranian phone validation, customer/conversation/message storage, and read-only conversation review in Django Admin. The Persian touchscreen frontend is the next phase.
+Phase 3 application implementation is complete. The project now has the protected backend plus a responsive Persian RTL kiosk interface for operator login, customer intake, stored chat messages, operator logout, and manual or automatic customer reset.
 
 AI integration is intentionally disabled. No OpenAI package or API key is required at this stage, and the message API reports `ai_status: "disabled"`.
+
+The active customer is cleared after three minutes without interaction, with a 30-second warning. This closes only the customer conversation; the kiosk account remains logged in. The timeout can be adjusted after testing on the physical touchscreen stand.
 
 ## Prerequisites
 
@@ -51,6 +53,16 @@ Then sign in at http://localhost:8000/admin/ and create a separate kiosk user un
 - `POST /api/v1/conversations/{uuid}/close/` clears the customer session without logging out the kiosk.
 
 The browser must send the current `X-CSRFToken` value for every state-changing request. Django rotates that token after login.
+
+## Kiosk flow
+
+1. The operator signs in using the normal non-staff kiosk account.
+2. The customer enters a name and Iranian mobile number.
+3. The customer can submit messages; they are stored in PostgreSQL while AI is disabled.
+4. **New customer** closes the conversation and immediately clears all customer details from the screen without logging out the kiosk.
+5. The inactivity timer performs the same privacy reset automatically.
+
+Passwords, customer details, and conversations are not stored in browser local storage.
 
 ## Run checks
 

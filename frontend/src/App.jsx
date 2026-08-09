@@ -1,55 +1,83 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+import { Icon, LogoMark } from "./components/Icons";
+import LoginPage from "./features/auth/LoginPage";
+import KioskShell from "./KioskShell";
+import { ApiError, api } from "./services/api";
+
+
+function LoadingScreen() {
+  return (
+    <main className="app-background grid min-h-screen place-items-center p-6" role="status">
+      <div className="text-center">
+        <LogoMark />
+        <span className="spinner mx-auto mt-8 !h-9 !w-9 !border-teal-700 !border-l-transparent" />
+        <p className="mt-4 font-bold text-slate-600">در حال بررسی دسترسی…</p>
+      </div>
+    </main>
+  );
+}
+
+
+function ServerError({ message, onRetry }) {
+  return (
+    <main className="app-background grid min-h-screen place-items-center p-6">
+      <section className="w-full max-w-md rounded-[2rem] bg-white p-8 text-center shadow-xl ring-1 ring-slate-200">
+        <span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-rose-50 text-rose-600"><Icon name="wifiOff" size={30} /></span>
+        <h1 className="mt-5 text-2xl font-black text-slate-900">سامانه در دسترس نیست</h1>
+        <p className="mt-3 leading-7 text-slate-500">{message}</p>
+        <button className="primary-button mt-7 w-full" onClick={() => onRetry()} type="button"><Icon name="refresh" />تلاش دوباره</button>
+      </section>
+    </main>
+  );
+}
 
 
 function App() {
-  const [backendStatus, setBackendStatus] = useState("checking");
+  const [authState, setAuthState] = useState({ status: "checking", user: null, error: "" });
+
+  const checkAuthentication = useCallback(async (signal) => {
+    setAuthState({ status: "checking", user: null, error: "" });
+    try {
+      const user = await api.me(signal);
+      setAuthState({ status: "authenticated", user, error: "" });
+    } catch (error) {
+      if (error.name === "AbortError") return;
+      if (error instanceof ApiError && [401, 403].includes(error.status)) {
+        try {
+          await api.prepareCsrf(signal);
+        } catch (csrfError) {
+          if (csrfError.name === "AbortError") return;
+        }
+        setAuthState({ status: "unauthenticated", user: null, error: "" });
+      } else {
+        setAuthState({
+          status: "error",
+          user: null,
+          error: error.message || "ارتباط با سرور برقرار نشد.",
+        });
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-
-    fetch("/api/v1/health/", { signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Backend health check failed");
-        }
-        return response.json();
-      })
-      .then(() => setBackendStatus("online"))
-      .catch((error) => {
-        if (error.name !== "AbortError") {
-          setBackendStatus("offline");
-        }
-      });
-
+    checkAuthentication(controller.signal);
     return () => controller.abort();
-  }, []);
+  }, [checkAuthentication]);
 
-  const statusText = {
-    checking: "در حال بررسی ارتباط با سرور...",
-    online: "ارتباط با سرور برقرار است.",
-    offline: "ارتباط با سرور برقرار نیست.",
-  }[backendStatus];
+  if (authState.status === "checking") return <LoadingScreen />;
+  if (authState.status === "error") return <ServerError message={authState.error} onRetry={checkAuthentication} />;
+  if (authState.status === "unauthenticated") {
+    return <LoginPage onLogin={(user) => setAuthState({ status: "authenticated", user, error: "" })} />;
+  }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6 text-slate-900">
-      <section className="w-full max-w-2xl rounded-3xl bg-white p-8 text-center shadow-sm ring-1 ring-slate-200 sm:p-12">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-700 text-3xl text-white">
-          چ
-        </div>
-        <p className="mb-3 text-sm font-semibold text-teal-700">نسخه اولیه زیرساخت</p>
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">دستیار هوشمند مشتریان</h1>
-        <p className="mx-auto mt-5 max-w-xl text-lg leading-8 text-slate-600">
-          زیرساخت اولیه رابط فارسی، جنگو و پایگاه داده آماده شده است. صفحه ورود و گفت‌وگو در مرحله بعد ساخته می‌شود.
-        </p>
-        <div
-          className="mt-8 rounded-2xl bg-slate-50 px-5 py-4 text-base text-slate-700"
-          role="status"
-          aria-live="polite"
-        >
-          {statusText}
-        </div>
-      </section>
-    </main>
+    <KioskShell
+      onLogout={() => setAuthState({ status: "unauthenticated", user: null, error: "" })}
+      onSessionExpired={() => setAuthState({ status: "unauthenticated", user: null, error: "" })}
+      user={authState.user}
+    />
   );
 }
 
