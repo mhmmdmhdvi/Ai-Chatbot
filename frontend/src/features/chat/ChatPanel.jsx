@@ -34,17 +34,17 @@ function MessageBubble({ message }) {
     : "";
 
   return (
-    <article className={`flex w-full items-end gap-2.5 ${customer ? "justify-start" : "justify-end"}`}>
+    <article className={`message-row flex w-full items-end gap-2.5 ${customer ? "justify-start" : "justify-end"}`}>
       {!customer && (
-        <span className="mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-teal-700 text-white shadow-sm" aria-hidden="true">
+        <span className="bot-token mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl text-white" aria-hidden="true">
           <Icon name="sparkles" size={18} />
         </span>
       )}
       <div
-        className={`max-w-[86%] px-5 py-3.5 sm:max-w-[74%] ${
+        className={`message-bubble max-w-[86%] px-5 py-3.5 sm:max-w-[74%] ${
           customer
-            ? "rounded-[1.4rem] rounded-tr-md bg-slate-900 text-white shadow-sm"
-            : "rounded-[1.4rem] rounded-tl-md border border-slate-200/80 bg-white text-slate-800 shadow-sm shadow-slate-900/5"
+            ? "message-customer rounded-[1.4rem] rounded-tr-md text-white"
+            : "message-assistant rounded-[1.4rem] rounded-tl-md border border-slate-200/80 bg-white text-slate-800"
         }`}
       >
         <p className="mixed-content whitespace-pre-wrap break-words text-[15px] leading-7 sm:text-base" dir="auto">{message.content}</p>
@@ -230,82 +230,88 @@ export default function ChatPanel({ conversation, onConversationChange, onReset,
         : "نام و نام خانوادگی";
 
   return (
-    <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-3 pb-3 sm:px-6 sm:pb-6">
-      <section className="chat-surface flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white shadow-xl shadow-slate-900/5">
-        <div className="chat-scroll flex-1 overflow-y-auto bg-[#f7f8f7] px-4 py-7 sm:px-8 sm:py-10" aria-live="polite" aria-label="پیام‌های گفتگو">
-          <div className="mx-auto flex max-w-3xl flex-col gap-5">
-            {displayMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
-            <div ref={listEndRef} />
+    <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-3 pb-6 sm:px-6 sm:pb-8">
+      <div className="chat-frame flex min-h-0 flex-1">
+        <section className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white">
+          <div className="console-bezel grid shrink-0 place-items-center" aria-hidden="true">
+            <span className="console-grip" />
           </div>
-        </div>
 
-        <footer className="border-t border-slate-100 bg-white px-3 pb-3 pt-3 sm:px-6 sm:pb-5 sm:pt-4">
-          <div className="mx-auto max-w-3xl">
-            {error && (
-              <div className="mb-3 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700" role="alert">
-                <Icon name="warning" size={18} className="shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
+          <div className="chat-scroll flex-1 overflow-y-auto px-4 py-7 sm:px-8 sm:py-10" aria-live="polite" aria-label="پیام‌های گفتگو">
+            <div className="mx-auto flex max-w-3xl flex-col gap-5">
+              {displayMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
+              <div ref={listEndRef} />
+            </div>
+          </div>
 
-            <form className="chat-composer flex items-end gap-2 rounded-[1.4rem] border border-slate-200 bg-slate-50 p-2 transition focus-within:border-teal-600 focus-within:bg-white focus-within:ring-4 focus-within:ring-teal-600/10" onSubmit={handleSubmit}>
-              {conversation ? (
-                <textarea
-                  aria-label="متن پیام"
-                  autoFocus
-                  className="max-h-32 min-h-14 flex-1 resize-none bg-transparent px-3 py-3.5 leading-7 outline-none placeholder:text-slate-400"
-                  disabled={composerDisabled}
-                  maxLength={2000}
-                  onChange={(event) => setContent(event.target.value)}
-                  onKeyDown={handleTextareaKeyDown}
-                  placeholder={composerPlaceholder}
-                  ref={inputRef}
-                  rows={1}
-                  value={content}
-                />
-              ) : (
-                <input
-                  aria-label={intakeStep === "phone" ? "شماره همراه" : "نام و نام خانوادگی"}
-                  autoComplete="off"
-                  autoFocus
-                  className="min-h-14 min-w-0 flex-1 bg-transparent px-3 py-3.5 leading-7 outline-none placeholder:text-slate-400"
-                  dir={intakeStep === "phone" ? "ltr" : "rtl"}
-                  disabled={composerDisabled}
-                  inputMode={intakeStep === "phone" ? "tel" : "text"}
-                  maxLength={intakeStep === "phone" ? 30 : 100}
-                  onChange={(event) => setIntakeValue(event.target.value)}
-                  placeholder={composerPlaceholder}
-                  ref={inputRef}
-                  value={intakeValue}
-                />
+          <footer className="composer-dock border-t border-slate-200/80 px-3 pb-3 pt-3 sm:px-6 sm:pb-5 sm:pt-4">
+            <div className="mx-auto max-w-3xl">
+              {error && (
+                <div className="mb-3 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700" role="alert">
+                  <Icon name="warning" size={18} className="shrink-0" />
+                  <span>{error}</span>
+                </div>
               )}
 
-              <button
-                aria-label={conversation ? "ارسال پیام" : intakeStep === "phone" ? "شروع گفتگو" : "ادامه"}
-                className="grid h-14 w-14 shrink-0 place-items-center rounded-[1.1rem] bg-teal-700 text-white shadow-md shadow-teal-900/15 transition hover:bg-teal-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={composerDisabled || !composerValue.trim()}
-                type="submit"
-              >
-                {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="send" size={22} />}
-              </button>
-            </form>
-
-            {!conversation && (
-              <div className="mt-2 flex min-h-7 flex-wrap items-center justify-between gap-2 px-2 text-xs text-slate-400">
-                <span className="inline-flex items-center gap-1.5">
-                  <Icon name="shield" size={15} />
-                  نام، شماره و متن گفتگو در سامانه مجموعه ثبت می‌شود.
-                </span>
-                {intakeStep === "phone" && (
-                  <button className="min-h-7 font-bold text-teal-700 hover:text-teal-900" onClick={restartNameStep} type="button">
-                    اصلاح نام
-                  </button>
+              <form className="chat-composer flex items-end gap-2 rounded-[1.4rem] border border-slate-300/90 bg-white p-2 transition focus-within:border-teal-600 focus-within:ring-4 focus-within:ring-teal-600/10" onSubmit={handleSubmit}>
+                {conversation ? (
+                  <textarea
+                    aria-label="متن پیام"
+                    autoFocus
+                    className="max-h-32 min-h-14 flex-1 resize-none bg-transparent px-3 py-3.5 leading-7 outline-none placeholder:text-slate-400"
+                    disabled={composerDisabled}
+                    maxLength={2000}
+                    onChange={(event) => setContent(event.target.value)}
+                    onKeyDown={handleTextareaKeyDown}
+                    placeholder={composerPlaceholder}
+                    ref={inputRef}
+                    rows={1}
+                    value={content}
+                  />
+                ) : (
+                  <input
+                    aria-label={intakeStep === "phone" ? "شماره همراه" : "نام و نام خانوادگی"}
+                    autoComplete="off"
+                    autoFocus
+                    className="min-h-14 min-w-0 flex-1 bg-transparent px-3 py-3.5 leading-7 outline-none placeholder:text-slate-400"
+                    dir={intakeStep === "phone" ? "ltr" : "rtl"}
+                    disabled={composerDisabled}
+                    inputMode={intakeStep === "phone" ? "tel" : "text"}
+                    maxLength={intakeStep === "phone" ? 30 : 100}
+                    onChange={(event) => setIntakeValue(event.target.value)}
+                    placeholder={composerPlaceholder}
+                    ref={inputRef}
+                    value={intakeValue}
+                  />
                 )}
-              </div>
-            )}
-          </div>
-        </footer>
-      </section>
+
+                <button
+                  aria-label={conversation ? "ارسال پیام" : intakeStep === "phone" ? "شروع گفتگو" : "ادامه"}
+                  className="send-button-3d grid h-14 w-14 shrink-0 place-items-center rounded-[1.1rem] text-white transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                  disabled={composerDisabled || !composerValue.trim()}
+                  type="submit"
+                >
+                  {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="send" size={22} />}
+                </button>
+              </form>
+
+              {!conversation && (
+                <div className="mt-2 flex min-h-7 flex-wrap items-center justify-between gap-2 px-2 text-xs text-slate-400">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Icon name="shield" size={15} />
+                    نام، شماره و متن گفتگو در سامانه مجموعه ثبت می‌شود.
+                  </span>
+                  {intakeStep === "phone" && (
+                    <button className="min-h-7 font-bold text-teal-700 hover:text-teal-900" onClick={restartNameStep} type="button">
+                      اصلاح نام
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </footer>
+        </section>
+      </div>
 
       <Dialog
         cancelLabel="پایان گفتگو"

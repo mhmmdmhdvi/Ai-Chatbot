@@ -94,14 +94,14 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
   };
 
   return (
-    <div className="app-background flex min-h-dvh flex-col">
-      <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-3 sm:px-8 sm:py-4">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-teal-700 text-white shadow-md shadow-teal-900/15" aria-label="صفحه گفتگو">
+    <div className="app-background kiosk-environment flex min-h-dvh flex-col">
+      <header className="kiosk-header mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-3 sm:px-8 sm:py-4">
+        <span className="brand-cube grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-white" aria-label="صفحه گفتگو">
           <Icon name="sparkles" size={22} />
         </span>
         <div className="flex items-center gap-2">
           {!online && (
-            <span className="hidden items-center gap-2 rounded-full bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 sm:flex" role="status">
+            <span className="status-chip-3d hidden items-center gap-2 rounded-full bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 sm:flex" role="status">
               <Icon name="wifiOff" size={17} />
               بدون اتصال
             </span>
@@ -109,7 +109,7 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
           {conversation && (
             <button
               aria-label="مشتری جدید"
-              className="touch-button inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 shadow-sm hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 sm:px-4"
+              className="surface-button touch-button inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 sm:px-4"
               onClick={() => setResetDialogOpen(true)}
               type="button"
             >
@@ -117,7 +117,7 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
               <span className="hidden sm:inline">مشتری جدید</span>
             </button>
           )}
-          <button aria-label="خروج اپراتور" className="touch-button inline-flex items-center gap-2 rounded-2xl px-3 text-sm font-bold text-slate-500 hover:bg-white hover:text-slate-800" onClick={() => { setLogoutError(""); setLogoutDialogOpen(true); }} type="button">
+          <button aria-label="خروج اپراتور" className="surface-button surface-button-quiet touch-button inline-flex items-center gap-2 rounded-2xl px-3 text-sm font-bold text-slate-500 hover:bg-white hover:text-slate-800" onClick={() => { setLogoutError(""); setLogoutDialogOpen(true); }} type="button">
             <Icon name="logout" size={19} />
             <span className="hidden sm:inline">خروج</span>
           </button>
