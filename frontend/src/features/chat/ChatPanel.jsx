@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import assistantAvatar from "../../assets/assistant-avatar.webp";
 import Dialog from "../../components/Dialog";
 import { Icon } from "../../components/Icons";
 import useIdleTimeout from "../../hooks/useIdleTimeout";
@@ -36,15 +37,18 @@ function MessageBubble({ message }) {
   return (
     <article className={`message-row flex w-full items-end gap-2.5 ${customer ? "justify-end" : "justify-start"}`}>
       {!customer && (
-        <span className="bot-token mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl text-white" aria-hidden="true">
-          <Icon name="sparkles" size={18} />
-        </span>
+        <img
+          alt=""
+          aria-hidden="true"
+          className="assistant-avatar h-[4.5rem] w-[4.5rem] shrink-0 object-contain object-bottom sm:h-20 sm:w-20"
+          src={assistantAvatar}
+        />
       )}
       <div
-        className={`message-bubble max-w-[86%] px-5 py-3.5 sm:max-w-[74%] ${
+        className={`message-bubble px-5 py-3.5 ${
           customer
-            ? "message-customer rounded-[1.4rem] rounded-tr-md text-white"
-            : "message-assistant rounded-[1.4rem] rounded-tl-md border border-slate-200/80 bg-white text-slate-800"
+            ? "message-customer max-w-[86%] rounded-[1.4rem] rounded-tr-md text-white sm:max-w-[74%]"
+            : "message-assistant max-w-[72%] rounded-[1.4rem] rounded-tl-md border border-slate-200/80 bg-white text-slate-800 sm:max-w-[74%]"
         }`}
       >
         <p className="mixed-content whitespace-pre-wrap break-words text-[15px] leading-7 sm:text-base" dir="auto">{message.content}</p>
@@ -211,14 +215,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     }
   };
 
-  const restartNameStep = () => {
-    setCustomerName("");
-    setIntakeValue("");
-    setError("");
-    setIntakeStep("name");
-    setIntakeMessages([makeLocalMessage("assistant", INITIAL_PROMPT)]);
-  };
-
   const composerValue = conversation ? content : intakeValue;
   const composerDisabled = busy || !online;
   const composerPlaceholder = !online
@@ -298,19 +294,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
                 </button>
               </form>
 
-              {!conversation && (
-                <div className="privacy-caption mt-2 flex min-h-7 flex-wrap items-center justify-between gap-2 px-2 text-xs">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Icon name="shield" size={15} />
-                    نام، شماره و متن گفتگو در سامانه مجموعه ثبت می‌شود.
-                  </span>
-                  {intakeStep === "phone" && (
-                    <button className="min-h-7 font-bold text-cyan-200 hover:text-white" onClick={restartNameStep} type="button">
-                      اصلاح نام
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           </footer>
         </section>

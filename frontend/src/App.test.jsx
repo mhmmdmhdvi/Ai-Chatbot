@@ -84,7 +84,9 @@ describe("Persian kiosk application", () => {
 
     expect(await screen.findByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeTruthy();
     expect(screen.getByLabelText("نام و نام خانوادگی")).toBeTruthy();
+    expect(screen.queryByText("نام، شماره و متن گفتگو در سامانه مجموعه ثبت می‌شود.")).toBeNull();
     expect(screen.queryByRole("button", { name: "خروج اپراتور" })).toBeNull();
+    expect(document.querySelector("img.assistant-avatar")).not.toBeNull();
   });
 
   it("returns to the login gate when the kiosk session has expired", async () => {
