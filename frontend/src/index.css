@@ -48,83 +48,98 @@ textarea:focus-visible {
     radial-gradient(circle at 94% 96%, rgb(15 23 42 / 4%), transparent 26rem);
 }
 
-.kiosk-environment {
+.gradient-world {
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  background:
+    radial-gradient(circle at 82% 12%, rgb(45 212 191 / 28%), transparent 29rem),
+    radial-gradient(circle at 12% 88%, rgb(124 58 237 / 30%), transparent 30rem),
+    radial-gradient(circle at 48% 52%, rgb(37 99 235 / 18%), transparent 36rem),
+    linear-gradient(135deg, #06101f 0%, #0b1f3b 42%, #10264b 68%, #090e22 100%);
 }
 
-.kiosk-environment::before {
+.gradient-world::before {
   position: absolute;
   z-index: 0;
-  right: -12%;
-  bottom: -31%;
-  left: -12%;
-  height: 68%;
+  right: -18%;
+  bottom: -39%;
+  left: -18%;
+  height: 82%;
   background-image:
-    linear-gradient(90deg, rgb(15 118 110 / 9%) 1px, transparent 1px),
-    linear-gradient(0deg, rgb(15 118 110 / 9%) 1px, transparent 1px);
-  background-size: 44px 44px;
+    linear-gradient(90deg, rgb(125 211 252 / 16%) 1px, transparent 1px),
+    linear-gradient(0deg, rgb(125 211 252 / 16%) 1px, transparent 1px);
+  background-size: 58px 58px;
   content: "";
-  mask-image: linear-gradient(to bottom, transparent 2%, black 62%);
-  opacity: 0.65;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 68%);
+  opacity: 0.62;
   pointer-events: none;
-  transform: perspective(720px) rotateX(62deg);
+  transform: perspective(650px) rotateX(66deg);
   transform-origin: center bottom;
 }
 
-.kiosk-environment > * {
+.gradient-world > *:not(.ambient-scene) {
   position: relative;
   z-index: 1;
 }
 
-.kiosk-header {
-  perspective: 700px;
-}
-
-.brand-cube {
-  position: relative;
-  background: linear-gradient(145deg, #149488, #0f766e 58%, #0a5853);
-  box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 34%),
-    inset -1px -1px 0 rgb(4 47 46 / 28%),
-    0 5px 0 #084f4b,
-    0 10px 20px rgb(15 23 42 / 18%);
-  transform: translateY(-2px);
-}
-
-.brand-cube::after {
+.ambient-scene {
   position: absolute;
-  inset: 4px;
-  border: 1px solid rgb(255 255 255 / 18%);
-  border-radius: 0.75rem;
-  content: "";
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
   pointer-events: none;
+  perspective: 1000px;
 }
 
-.surface-button,
-.status-chip-3d {
+.ambient-sphere,
+.ambient-ring {
+  position: absolute;
+  display: block;
+}
+
+.ambient-sphere {
+  border-radius: 999px;
+}
+
+.ambient-sphere-one {
+  top: -10rem;
+  right: -5rem;
+  width: 28rem;
+  height: 28rem;
+  background: radial-gradient(circle at 30% 24%, #d5fffb 0%, #5eead4 9%, #2f9ee9 37%, #6046ce 67%, #140d3d 100%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 90%),
-    0 3px 0 #cbd5d1,
-    0 7px 15px rgb(15 23 42 / 8%);
-  transform: translateY(-1px);
+    inset -3rem -4rem 6rem rgb(5 10 35 / 66%),
+    inset 1rem 1rem 2rem rgb(255 255 255 / 18%),
+    0 4rem 8rem rgb(45 212 191 / 22%);
+  opacity: 0.76;
 }
 
-.surface-button {
-  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
-}
-
-.surface-button-quiet {
-  border: 1px solid transparent;
-  background: rgb(255 255 255 / 58%);
-}
-
-.surface-button:active {
+.ambient-sphere-two {
+  bottom: -11rem;
+  left: -6rem;
+  width: 25rem;
+  height: 25rem;
+  background: radial-gradient(circle at 33% 27%, #f5d0fe 0%, #c084fc 12%, #7c3aed 42%, #2454a6 70%, #0a1735 100%);
   box-shadow:
-    inset 0 1px 3px rgb(15 23 42 / 10%),
-    0 1px 0 #cbd5d1;
-  transform: translateY(2px);
+    inset -3rem -4rem 6rem rgb(7 10 38 / 70%),
+    inset 1rem 1rem 2rem rgb(255 255 255 / 16%),
+    0 4rem 9rem rgb(124 58 237 / 26%);
+  opacity: 0.68;
+}
+
+.ambient-ring {
+  top: 34%;
+  left: 4%;
+  width: 15rem;
+  height: 15rem;
+  border: 1.4rem solid rgb(103 232 249 / 17%);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 0 2.4rem rgb(103 232 249 / 16%),
+    0 0 3rem rgb(37 99 235 / 18%);
+  opacity: 0.8;
+  transform: rotateX(68deg) rotateZ(-24deg);
 }
 
 .login-pattern {
@@ -213,95 +228,102 @@ textarea:focus-visible {
 .chat-frame {
   position: relative;
   isolation: isolate;
-  margin-inline-end: 10px;
-  margin-bottom: 14px;
-  perspective: 1000px;
+  perspective: 1200px;
 }
 
 .chat-frame::before {
   position: absolute;
   z-index: 0;
-  inset: 11px -10px -14px 10px;
-  border: 1px solid #91aaa2;
-  border-radius: 2rem;
-  background: linear-gradient(145deg, #b9ccc6, #96afa7);
-  box-shadow:
-    0 9px 0 #78958c,
-    0 24px 48px rgb(15 23 42 / 18%);
+  inset: 7% 7% -18px;
+  border-radius: 2.6rem;
+  background: linear-gradient(100deg, rgb(34 211 238 / 62%), rgb(99 102 241 / 58%), rgb(168 85 247 / 52%), rgb(45 212 191 / 55%));
   content: "";
+  filter: blur(25px);
+  opacity: 0.62;
+  transform: translateZ(-45px) scale(0.98);
 }
 
 .chat-surface {
-  min-height: min(680px, calc(100dvh - 6.5rem));
+  min-height: min(760px, calc(100dvh - 4.5rem));
+  border: 1px solid rgb(255 255 255 / 20%);
+  background: linear-gradient(145deg, rgb(18 37 72 / 91%), rgb(7 16 37 / 87%));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 95%),
-    inset 0 -1px 0 rgb(15 23 42 / 8%),
-    0 8px 18px rgb(15 23 42 / 10%);
-}
-
-.console-bezel {
-  min-height: 24px;
-  border-bottom: 1px solid #d8e0dd;
-  background: linear-gradient(180deg, #fdfefe, #e8eeeb);
-  box-shadow:
-    inset 0 1px 0 white,
-    inset 0 -2px 4px rgb(15 23 42 / 6%);
-}
-
-.console-grip {
-  width: 3.5rem;
-  height: 5px;
-  border: 1px solid #c3cfcb;
-  border-radius: 999px;
-  background: #d7e0dd;
-  box-shadow:
-    inset 0 1px 2px rgb(15 23 42 / 18%),
-    0 1px 0 white;
+    inset 0 1px 0 rgb(255 255 255 / 24%),
+    inset 0 -1px 0 rgb(255 255 255 / 7%),
+    0 2.2rem 6rem rgb(1 5 20 / 48%);
+  backdrop-filter: blur(28px) saturate(125%);
 }
 
 .chat-composer {
   box-shadow:
-    inset 0 2px 5px rgb(15 23 42 / 9%),
-    0 1px 0 rgb(255 255 255 / 90%),
-    0 7px 18px rgb(15 23 42 / 8%);
+    inset 0 1px 2px rgb(15 23 42 / 10%),
+    0 1px 0 rgb(255 255 255 / 38%),
+    0 1rem 2.5rem rgb(1 6 24 / 32%);
 }
 
 .composer-dock {
-  background: linear-gradient(180deg, #e6ece9, #f5f7f5 18%, #edf2ef);
+  background: linear-gradient(180deg, rgb(4 12 30 / 55%), rgb(7 16 37 / 82%));
   box-shadow:
-    inset 0 4px 8px rgb(15 23 42 / 8%),
-    inset 0 -1px 0 white;
+    inset 0 1px 0 rgb(255 255 255 / 6%),
+    0 -1.2rem 3rem rgb(1 5 20 / 20%);
+  backdrop-filter: blur(22px) saturate(120%);
 }
 
 .send-button-3d {
-  background: linear-gradient(145deg, #149488, #0f766e 58%, #0b605a);
+  border: 1px solid rgb(255 255 255 / 24%);
+  background: linear-gradient(135deg, #2dd4bf 0%, #2389dc 44%, #6d5ce8 72%, #8b5cf6 100%);
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 34%),
-    0 5px 0 #084f4b,
-    0 10px 18px rgb(15 118 110 / 24%);
-  transform: translateY(-2px);
+    inset 1px 1px 0 rgb(255 255 255 / 42%),
+    inset -2px -2px 5px rgb(49 46 129 / 28%),
+    0 0.8rem 1.8rem rgb(37 99 235 / 34%);
+  transform: translateY(0) scale(1);
 }
 
 .send-button-3d:hover:not(:disabled) {
-  background: linear-gradient(145deg, #18a496, #0d8076 58%, #0a625b);
-  transform: translateY(-3px);
+  background: linear-gradient(135deg, #42e2cf 0%, #2c9bed 44%, #806df4 74%, #9b6cff 100%);
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 48%),
+    0 1rem 2.2rem rgb(45 212 191 / 24%),
+    0 0.7rem 1.6rem rgb(99 102 241 / 30%);
+  transform: translateY(-2px) scale(1.02);
 }
 
 .send-button-3d:active:not(:disabled) {
   box-shadow:
-    inset 1px 2px 4px rgb(4 47 46 / 28%),
-    0 1px 0 #084f4b,
-    0 4px 8px rgb(15 118 110 / 18%);
-  transform: translateY(2px);
+    inset 2px 3px 7px rgb(30 27 75 / 30%),
+    0 0.35rem 0.9rem rgb(37 99 235 / 26%);
+  transform: translateY(1px) scale(0.97);
+}
+
+.new-customer-button {
+  border: 1px solid rgb(255 255 255 / 24%);
+  background: linear-gradient(135deg, rgb(255 255 255 / 17%), rgb(255 255 255 / 8%));
+  box-shadow:
+    inset 1px 1px 0 rgb(255 255 255 / 22%),
+    0 0.8rem 2rem rgb(1 5 20 / 25%);
+  backdrop-filter: blur(18px) saturate(135%);
+  transition: background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.new-customer-button:hover {
+  background: linear-gradient(135deg, rgb(45 212 191 / 30%), rgb(99 102 241 / 20%));
+  transform: translateY(-1px);
+}
+
+.new-customer-button:active {
+  box-shadow: inset 1px 2px 5px rgb(1 5 20 / 25%);
+  transform: translateY(1px) scale(0.98);
 }
 
 .bot-token {
-  background: linear-gradient(145deg, #15a094, #0f766e 62%, #09534e);
+  border: 1px solid rgb(255 255 255 / 24%);
+  border-radius: 999px;
+  background: radial-gradient(circle at 31% 25%, #d5fffb 0%, #5eead4 15%, #368edb 48%, #5b3dba 74%, #1a1548 100%);
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 35%),
-    0 4px 0 #084f4b,
-    0 8px 14px rgb(15 23 42 / 14%);
-  transform: translateY(-2px);
+    inset -0.35rem -0.45rem 0.8rem rgb(12 15 58 / 38%),
+    inset 0.2rem 0.2rem 0.45rem rgb(255 255 255 / 28%),
+    0 0.7rem 1.5rem rgb(45 212 191 / 22%);
+  transform: translateY(-1px);
 }
 
 .message-bubble {
@@ -309,28 +331,33 @@ textarea:focus-visible {
 }
 
 .message-assistant {
+  background: linear-gradient(145deg, #ffffff 0%, #eef6ff 58%, #e6effe 100%);
   box-shadow:
-    inset 0 1px 0 white,
-    0 4px 0 #d7dfdc,
-    0 10px 20px rgb(15 23 42 / 9%);
+    inset 1px 1px 0 white,
+    inset -1px -1px 0 rgb(148 163 184 / 18%),
+    0 1rem 2.2rem rgb(1 5 20 / 24%);
 }
 
 .message-customer {
-  border: 1px solid #132a3a;
-  background: linear-gradient(145deg, #233647, #172b3b 62%, #102230);
+  border: 1px solid rgb(255 255 255 / 18%);
+  background: linear-gradient(135deg, #0d9488 0%, #177fc1 48%, #5b4fd6 100%);
   box-shadow:
-    inset 1px 1px 0 rgb(255 255 255 / 13%),
-    0 4px 0 #091923,
-    0 10px 20px rgb(15 23 42 / 17%);
+    inset 1px 1px 0 rgb(255 255 255 / 24%),
+    inset -1px -1px 0 rgb(30 27 75 / 20%),
+    0 1rem 2.2rem rgb(1 5 20 / 30%);
+}
+
+.privacy-caption {
+  color: #b9c8dc;
 }
 
 .chat-scroll {
-  background-color: #f5f7f5;
+  background-color: rgb(6 16 38 / 76%);
   background-image:
-    linear-gradient(rgb(255 255 255 / 48%), rgb(255 255 255 / 48%)),
-    radial-gradient(circle at 1px 1px, rgb(15 118 110 / 8%) 1px, transparent 1px);
-  background-size: auto, 22px 22px;
-  scrollbar-color: #cbd5e1 transparent;
+    radial-gradient(circle at 86% 12%, rgb(45 212 191 / 12%), transparent 28rem),
+    radial-gradient(circle at 10% 88%, rgb(124 58 237 / 14%), transparent 26rem),
+    linear-gradient(155deg, rgb(12 30 60 / 74%), rgb(5 14 34 / 88%));
+  scrollbar-color: rgb(148 163 184 / 48%) transparent;
   scrollbar-width: thin;
 }
 
@@ -340,7 +367,7 @@ textarea:focus-visible {
 
 .chat-scroll::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: #cbd5e1;
+  background: rgb(148 163 184 / 48%);
 }
 
 @keyframes spin {
@@ -359,20 +386,34 @@ textarea:focus-visible {
 }
 
 @media (max-width: 639px) {
-  .chat-frame {
-    margin-inline-end: 5px;
-    margin-bottom: 9px;
+  .ambient-sphere-one {
+    top: -8rem;
+    right: -10rem;
+    width: 22rem;
+    height: 22rem;
+  }
+
+  .ambient-sphere-two {
+    bottom: -9rem;
+    left: -10rem;
+    width: 21rem;
+    height: 21rem;
+  }
+
+  .ambient-ring {
+    top: 42%;
+    left: -6rem;
+    width: 12rem;
+    height: 12rem;
   }
 
   .chat-frame::before {
-    inset: 7px -5px -9px 5px;
-    border-radius: 1.9rem;
-    box-shadow:
-      0 5px 0 #78958c,
-      0 15px 30px rgb(15 23 42 / 15%);
+    inset: 8% 6% -10px;
+    filter: blur(17px);
   }
 
-  .console-bezel {
-    min-height: 20px;
+  .chat-surface {
+    min-height: calc(100dvh - 1.5rem);
+    border-radius: 1.7rem;
   }
 }

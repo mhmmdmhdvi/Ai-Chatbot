@@ -73,11 +73,7 @@ function App() {
   }
 
   return (
-    <KioskShell
-      onLogout={() => setAuthState({ status: "unauthenticated", user: null, error: "" })}
-      onSessionExpired={() => setAuthState({ status: "unauthenticated", user: null, error: "" })}
-      user={authState.user}
-    />
+    <KioskShell onSessionExpired={() => setAuthState({ status: "unauthenticated", user: null, error: "" })} />
   );
 }
 

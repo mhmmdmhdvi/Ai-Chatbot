@@ -84,7 +84,7 @@ describe("Persian kiosk application", () => {
 
     expect(await screen.findByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeTruthy();
     expect(screen.getByLabelText("نام و نام خانوادگی")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "خروج اپراتور" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "خروج اپراتور" })).toBeNull();
   });
 
   it("returns to the login gate when the kiosk session has expired", async () => {
@@ -99,23 +99,17 @@ describe("Persian kiosk application", () => {
     expect(screen.queryByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeNull();
   });
 
-  it("logs the operator out only after confirmation", async () => {
-    const fetchMock = vi.fn(async (url, options = {}) => {
+  it("does not expose operator controls on the customer screen", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url) => {
       if (url === "/api/v1/auth/me/") return jsonResponse(kioskUser);
       if (url === "/api/v1/sessions/current/") return emptyResponse();
-      if (url === "/api/v1/auth/logout/" && options.method === "POST") return emptyResponse();
       throw new Error(`Unexpected request: ${url}`);
-    });
-    vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
+    }));
     render(<App />);
 
-    await user.click(await screen.findByRole("button", { name: "خروج اپراتور" }));
-    expect(screen.getByRole("heading", { name: "از حساب اپراتور خارج می‌شوید؟" })).toBeTruthy();
-    await user.click(screen.getByRole("button", { name: "خروج" }));
-
-    expect(await screen.findByRole("heading", { name: "ورود اپراتور" })).toBeTruthy();
-    expect(fetchMock.mock.calls.some(([url]) => url === "/api/v1/auth/logout/")).toBe(true);
+    expect(await screen.findByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "خروج اپراتور" })).toBeNull();
+    expect(screen.queryByLabelText("صفحه گفتگو")).toBeNull();
   });
 
   it("creates a customer, stores a message, and clears the screen for the next customer", async () => {

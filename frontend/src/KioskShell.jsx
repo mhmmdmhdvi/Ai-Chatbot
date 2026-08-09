@@ -6,14 +6,11 @@ import ChatPanel from "./features/chat/ChatPanel";
 import { ApiError, api } from "./services/api";
 
 
-export default function KioskShell({ user, onLogout, onSessionExpired }) {
+export default function KioskShell({ onSessionExpired }) {
   const [conversation, setConversation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
-  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
-  const [logoutError, setLogoutError] = useState("");
-  const [loggingOut, setLoggingOut] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
 
   const loadCurrentSession = useCallback(async (signal) => {
@@ -63,72 +60,19 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
     }
   }, [onSessionExpired]);
 
-  const handleLogout = async () => {
-    if (loggingOut) return;
-    setLogoutDialogOpen(false);
-    setLogoutError("");
-    setLoggingOut(true);
-    const activeId = conversation?.id;
-    setConversation(null);
-    if (activeId) {
-      try {
-        await api.closeConversation(activeId);
-      } catch {
-        // Logout is still attempted even if closing the conversation fails.
-      }
-    }
-
-    try {
-      await api.logout();
-      onLogout();
-    } catch (requestError) {
-      if (requestError instanceof ApiError && [401, 403].includes(requestError.status)) {
-        onLogout();
-      } else {
-        setLogoutError("خروج در سرور ثبت نشد. اتصال شبکه را بررسی و دوباره تلاش کنید.");
-        setLogoutDialogOpen(true);
-      }
-    } finally {
-      setLoggingOut(false);
-    }
-  };
-
   return (
-    <div className="app-background kiosk-environment flex min-h-dvh flex-col">
-      <header className="kiosk-header mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-3 sm:px-8 sm:py-4">
-        <span className="brand-cube grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-white" aria-label="صفحه گفتگو">
-          <Icon name="sparkles" size={22} />
-        </span>
-        <div className="flex items-center gap-2">
-          {!online && (
-            <span className="status-chip-3d hidden items-center gap-2 rounded-full bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 sm:flex" role="status">
-              <Icon name="wifiOff" size={17} />
-              بدون اتصال
-            </span>
-          )}
-          {conversation && (
-            <button
-              aria-label="مشتری جدید"
-              className="surface-button touch-button inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 sm:px-4"
-              onClick={() => setResetDialogOpen(true)}
-              type="button"
-            >
-              <Icon name="refresh" size={18} />
-              <span className="hidden sm:inline">مشتری جدید</span>
-            </button>
-          )}
-          <button aria-label="خروج اپراتور" className="surface-button surface-button-quiet touch-button inline-flex items-center gap-2 rounded-2xl px-3 text-sm font-bold text-slate-500 hover:bg-white hover:text-slate-800" onClick={() => { setLogoutError(""); setLogoutDialogOpen(true); }} type="button">
-            <Icon name="logout" size={19} />
-            <span className="hidden sm:inline">خروج</span>
-          </button>
-        </div>
-      </header>
+    <div className="app-background gradient-world flex min-h-dvh flex-col">
+      <div className="ambient-scene" aria-hidden="true">
+        <span className="ambient-sphere ambient-sphere-one" />
+        <span className="ambient-sphere ambient-sphere-two" />
+        <span className="ambient-ring" />
+      </div>
 
       {loading ? (
         <main className="grid flex-1 place-items-center p-6" role="status">
           <div className="text-center">
-            <span className="spinner mx-auto !h-9 !w-9 !border-teal-700 !border-l-transparent" />
-            <p className="mt-4 font-bold text-slate-600">در حال آماده‌سازی کیوسک…</p>
+            <span className="spinner mx-auto !h-9 !w-9 !border-cyan-300 !border-l-transparent" />
+            <p className="mt-4 font-bold text-white/80">در حال آماده‌سازی کیوسک…</p>
           </div>
         </main>
       ) : loadError ? (
@@ -144,6 +88,7 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
         <ChatPanel
           conversation={conversation}
           onConversationChange={setConversation}
+          onNewCustomer={() => setResetDialogOpen(true)}
           onReset={resetCustomer}
           onSessionExpired={onSessionExpired}
           online={online}
@@ -164,15 +109,6 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
         title="گفتگوی فعلی پایان یابد؟"
       />
 
-      <Dialog
-        cancelLabel="ماندن در سامانه"
-        confirmLabel="خروج"
-        description={logoutError || `با خروج از حساب «${user.username}»، برای استفاده دوباره باید رمز عبور اپراتور وارد شود.`}
-        onCancel={() => setLogoutDialogOpen(false)}
-        onConfirm={handleLogout}
-        open={logoutDialogOpen}
-        title={logoutError ? "خروج انجام نشد" : "از حساب اپراتور خارج می‌شوید؟"}
-      />
     </div>
   );
 }

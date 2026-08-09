@@ -34,7 +34,7 @@ function MessageBubble({ message }) {
     : "";
 
   return (
-    <article className={`message-row flex w-full items-end gap-2.5 ${customer ? "justify-start" : "justify-end"}`}>
+    <article className={`message-row flex w-full items-end gap-2.5 ${customer ? "justify-end" : "justify-start"}`}>
       {!customer && (
         <span className="bot-token mb-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl text-white" aria-hidden="true">
           <Icon name="sparkles" size={18} />
@@ -59,7 +59,7 @@ function MessageBubble({ message }) {
 }
 
 
-export default function ChatPanel({ conversation, onConversationChange, onReset, onSessionExpired, online }) {
+export default function ChatPanel({ conversation, onConversationChange, onNewCustomer, onReset, onSessionExpired, online }) {
   const [intakeStep, setIntakeStep] = useState(() => (conversation ? "complete" : "name"));
   const [intakeValue, setIntakeValue] = useState("");
   const [customerName, setCustomerName] = useState(() => conversation?.customer?.name || "");
@@ -230,21 +230,24 @@ export default function ChatPanel({ conversation, onConversationChange, onReset,
         : "نام و نام خانوادگی";
 
   return (
-    <main className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col px-3 pb-6 sm:px-6 sm:pb-8">
+    <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-3 sm:p-7 lg:p-9">
       <div className="chat-frame flex min-h-0 flex-1">
-        <section className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white">
-          <div className="console-bezel grid shrink-0 place-items-center" aria-hidden="true">
-            <span className="console-grip" />
-          </div>
+        <section className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[2rem]">
+          {conversation && (
+            <button className="new-customer-button touch-button absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-2xl px-4 text-sm font-bold text-white sm:left-6 sm:top-6" onClick={onNewCustomer} type="button">
+              <Icon name="refresh" size={18} />
+              مشتری جدید
+            </button>
+          )}
 
-          <div className="chat-scroll flex-1 overflow-y-auto px-4 py-7 sm:px-8 sm:py-10" aria-live="polite" aria-label="پیام‌های گفتگو">
+          <div className={`chat-scroll flex-1 overflow-y-auto px-4 pb-8 sm:px-8 sm:pb-10 ${conversation ? "pt-24" : "pt-8 sm:pt-10"}`} aria-live="polite" aria-label="پیام‌های گفتگو">
             <div className="mx-auto flex max-w-3xl flex-col gap-5">
               {displayMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
               <div ref={listEndRef} />
             </div>
           </div>
 
-          <footer className="composer-dock border-t border-slate-200/80 px-3 pb-3 pt-3 sm:px-6 sm:pb-5 sm:pt-4">
+          <footer className="composer-dock border-t border-white/10 px-3 pb-3 pt-3 sm:px-6 sm:pb-5 sm:pt-4">
             <div className="mx-auto max-w-3xl">
               {error && (
                 <div className="mb-3 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700" role="alert">
@@ -253,7 +256,7 @@ export default function ChatPanel({ conversation, onConversationChange, onReset,
                 </div>
               )}
 
-              <form className="chat-composer flex items-end gap-2 rounded-[1.4rem] border border-slate-300/90 bg-white p-2 transition focus-within:border-teal-600 focus-within:ring-4 focus-within:ring-teal-600/10" onSubmit={handleSubmit}>
+              <form className="chat-composer flex items-end gap-2 rounded-[1.4rem] border border-white/60 bg-white p-2 transition focus-within:border-cyan-300 focus-within:ring-4 focus-within:ring-cyan-300/20" onSubmit={handleSubmit}>
                 {conversation ? (
                   <textarea
                     aria-label="متن پیام"
@@ -296,13 +299,13 @@ export default function ChatPanel({ conversation, onConversationChange, onReset,
               </form>
 
               {!conversation && (
-                <div className="mt-2 flex min-h-7 flex-wrap items-center justify-between gap-2 px-2 text-xs text-slate-400">
+                <div className="privacy-caption mt-2 flex min-h-7 flex-wrap items-center justify-between gap-2 px-2 text-xs">
                   <span className="inline-flex items-center gap-1.5">
                     <Icon name="shield" size={15} />
                     نام، شماره و متن گفتگو در سامانه مجموعه ثبت می‌شود.
                   </span>
                   {intakeStep === "phone" && (
-                    <button className="min-h-7 font-bold text-teal-700 hover:text-teal-900" onClick={restartNameStep} type="button">
+                    <button className="min-h-7 font-bold text-cyan-200 hover:text-white" onClick={restartNameStep} type="button">
                       اصلاح نام
                     </button>
                   )}

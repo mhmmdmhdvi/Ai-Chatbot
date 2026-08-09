@@ -581,10 +581,10 @@ The customer flow, accessibility, and touch ergonomics can be validated independ
 - [x] Add authentication state and a protected loading/error state.
 - [x] Show unauthenticated users only the login page.
 - [x] Open the protected kiosk flow for authenticated users.
-- [x] Add a controlled logout action with confirmation for staff/operator use.
+- [x] Keep the logo and operator logout controls off the customer-facing kiosk screen.
 - [x] Build conversational name and phone intake inside the chat instead of a separate form page.
 - [x] Build the chat message list and composer.
-- [x] Add a restrained three-dimensional kiosk-console design using consistent elevation, layered surfaces, and tactile controls without generated imagery.
+- [x] Add a full-screen gradient 3D environment with CSS-built ambient forms and a readable layered-glass chat surface.
 - [x] Add large touch targets and readable typography.
 - [x] Use a Persian right-to-left layout throughout the customer experience.
 - [x] Correctly isolate embedded left-to-right product names, numbers, URLs, and technical codes.
@@ -641,7 +641,7 @@ Keep AI disabled. Store customer messages without creating fake assistant answer
 
 ### Testing
 
-- Login, logout, protected-route, and expired-session tests
+- Login, protected-route, expired-session, and hidden-operator-control tests
 - Component tests
 - Form validation tests
 - Persian RTL and mixed-content visual testing
@@ -663,11 +663,11 @@ Keep AI disabled. Store customer messages without creating fake assistant answer
 
 Phase 3 software verification completed on 2026-08-09:
 
-- Six frontend interaction tests passed: login gate, generic login error, valid login flow, expired-session handling, confirmed logout, conversational customer intake, mixed Persian/English message storage, and customer reset.
+- Six frontend interaction tests passed: login gate, generic login error, valid login flow, expired-session handling, absence of operator controls, conversational customer intake, mixed Persian/English message storage, and customer reset.
 - Frontend production build passed.
 - The simplified conversational-intake redesign was visually inspected at 1440 × 900.
 - The redesigned narrow viewport passed at 390 × 844 with no horizontal overflow.
-- The three-dimensional console, raised controls, message elevations, and recessed composer were visually rechecked at both viewport sizes.
+- The full-screen gradient environment, CSS-built 3D forms, readable message layers, and floating composer were visually rechecked at both viewport sizes.
 - Physical stand, touch comfort, and Windows on-screen-keyboard testing remain pending.
 
 ---
