@@ -82,11 +82,12 @@ describe("Persian kiosk application", () => {
     await user.type(screen.getByLabelText("رمز عبور"), "Strong-password");
     await user.click(screen.getByRole("button", { name: "ورود به سامانه" }));
 
-    expect(await screen.findByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeTruthy();
+    expect(await screen.findByText(/برای شروع، نام و نام خانوادگی‌تان را وارد کنید/)).toBeTruthy();
     expect(screen.getByLabelText("نام و نام خانوادگی")).toBeTruthy();
     expect(screen.queryByText("نام، شماره و متن گفتگو در سامانه مجموعه ثبت می‌شود.")).toBeNull();
     expect(screen.queryByRole("button", { name: "خروج اپراتور" })).toBeNull();
-    expect(document.querySelector("img.assistant-avatar")).not.toBeNull();
+    expect(document.querySelector("img.intake-character")).not.toBeNull();
+    expect(screen.queryByLabelText("پیام‌های گفتگو")).toBeNull();
   });
 
   it("returns to the login gate when the kiosk session has expired", async () => {
@@ -98,7 +99,7 @@ describe("Persian kiosk application", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "ورود اپراتور" })).toBeTruthy();
-    expect(screen.queryByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeNull();
+    expect(screen.queryByText(/برای شروع، نام و نام خانوادگی‌تان را وارد کنید/)).toBeNull();
   });
 
   it("does not expose operator controls on the customer screen", async () => {
@@ -109,7 +110,7 @@ describe("Persian kiosk application", () => {
     }));
     render(<App />);
 
-    expect(await screen.findByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeTruthy();
+    expect(await screen.findByText(/برای شروع، نام و نام خانوادگی‌تان را وارد کنید/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "خروج اپراتور" })).toBeNull();
     expect(screen.queryByLabelText("صفحه گفتگو")).toBeNull();
   });
@@ -148,10 +149,12 @@ describe("Persian kiosk application", () => {
     await user.type(await screen.findByLabelText("نام و نام خانوادگی"), "سارا احمدی");
     await user.click(screen.getByRole("button", { name: "ادامه" }));
     expect(await screen.findByText(/ممنون سارا/)).toBeTruthy();
+    expect(screen.queryByLabelText("پیام‌های گفتگو")).toBeNull();
     await user.type(screen.getByLabelText("شماره همراه"), "09121234567");
     await user.click(screen.getByRole("button", { name: "شروع گفتگو" }));
 
     expect(await screen.findByText(/خیلی خوب، آماده‌ام/)).toBeTruthy();
+    expect(screen.getByLabelText("پیام‌های گفتگو")).toBeTruthy();
     const composer = screen.getByLabelText("متن پیام");
     await user.type(composer, "قیمت مدل X200 چقدر است؟");
     await user.click(screen.getByRole("button", { name: "ارسال پیام" }));
@@ -162,7 +165,7 @@ describe("Persian kiosk application", () => {
     await user.click(screen.getByRole("button", { name: "مشتری جدید" }));
     await user.click(screen.getByRole("button", { name: "شروع برای مشتری جدید" }));
 
-    expect(await screen.findByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeTruthy();
+    expect(await screen.findByText(/برای شروع، نام و نام خانوادگی‌تان را وارد کنید/)).toBeTruthy();
     expect(screen.queryByText("سارا احمدی")).toBeNull();
     expect(screen.queryByText("قیمت مدل X200 چقدر است؟")).toBeNull();
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url.endsWith("/close/"))).toBe(true));

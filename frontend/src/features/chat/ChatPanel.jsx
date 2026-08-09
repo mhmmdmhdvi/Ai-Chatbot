@@ -9,18 +9,6 @@ import { ApiError, api } from "../../services/api";
 
 const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
 const IDLE_WARNING_MS = 30 * 1000;
-const INITIAL_PROMPT = "سلام، خوش آمدید 👋\nبرای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید.";
-
-
-function makeLocalMessage(role, content) {
-  return {
-    id: `local-${Date.now()}-${Math.random()}`,
-    role,
-    content,
-    created_at: new Date().toISOString(),
-    local: true,
-  };
-}
 
 
 function firstName(name) {
@@ -63,13 +51,82 @@ function MessageBubble({ message }) {
 }
 
 
+function IntakeScene({ busy, customerName, error, inputRef, intakeStep, intakeValue, onChange, onSubmit, online }) {
+  const collectingPhone = intakeStep === "phone";
+  const promptTitle = collectingPhone ? `ممنون ${firstName(customerName)}.` : "سلام، خوش آمدید 👋";
+  const promptText = collectingPhone
+    ? "حالا شماره موبایل‌تان را وارد کنید."
+    : "برای شروع، نام و نام خانوادگی‌تان را وارد کنید.";
+  const inputLabel = collectingPhone ? "شماره همراه" : "نام و نام خانوادگی";
+  const submitLabel = collectingPhone ? "شروع گفتگو" : "ادامه";
+  const placeholder = !online
+    ? "اتصال شبکه برقرار نیست"
+    : collectingPhone
+      ? "مثلاً ۰۹۱۲۱۲۳۴۵۶۷"
+      : "نام و نام خانوادگی";
+
+  return (
+    <main className="intake-stage mx-auto grid min-h-0 w-full max-w-6xl flex-1 place-items-center overflow-y-auto p-4 sm:p-8">
+      <section className="intake-popover" aria-label="شروع گفتگوی مشتری">
+        <img
+          alt=""
+          aria-hidden="true"
+          className="intake-character"
+          src={assistantAvatar}
+        />
+
+        <div className="intake-thought-card" key={intakeStep} aria-live="polite">
+          <span className="intake-step-label">مرحله {collectingPhone ? "۲" : "۱"} از ۲</span>
+          <h1 className="mt-3 text-xl font-black leading-8 text-slate-900 sm:text-2xl">{promptTitle}</h1>
+          <p className="mt-1.5 text-sm leading-7 text-slate-600 sm:text-base">{promptText}</p>
+
+          {error && (
+            <div className="mt-4 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700" role="alert">
+              <Icon name="warning" size={18} className="shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form className="intake-input-shell mt-5 flex items-center gap-2 rounded-[1.35rem] bg-white p-2" onSubmit={onSubmit}>
+            <input
+              aria-label={inputLabel}
+              autoComplete="off"
+              autoFocus
+              className="min-h-14 min-w-0 flex-1 bg-transparent px-3 py-3 text-base outline-none placeholder:text-slate-400"
+              dir={collectingPhone ? "ltr" : "rtl"}
+              disabled={busy || !online}
+              inputMode={collectingPhone ? "tel" : "text"}
+              maxLength={collectingPhone ? 30 : 100}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={placeholder}
+              ref={inputRef}
+              value={intakeValue}
+            />
+            <button
+              aria-label={submitLabel}
+              className="send-button-3d grid h-14 w-14 shrink-0 place-items-center rounded-[1.1rem] text-white transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-40"
+              disabled={busy || !online || !intakeValue.trim()}
+              type="submit"
+            >
+              {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="send" size={22} />}
+            </button>
+          </form>
+
+          <div className="mt-4 flex items-center gap-2" aria-hidden="true">
+            <span className="intake-progress-dot is-active" />
+            <span className={`intake-progress-dot ${collectingPhone ? "is-active" : ""}`} />
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+
 export default function ChatPanel({ conversation, onConversationChange, onNewCustomer, onReset, onSessionExpired, online }) {
   const [intakeStep, setIntakeStep] = useState(() => (conversation ? "complete" : "name"));
   const [intakeValue, setIntakeValue] = useState("");
   const [customerName, setCustomerName] = useState(() => conversation?.customer?.name || "");
-  const [intakeMessages, setIntakeMessages] = useState(() => (
-    conversation ? [] : [makeLocalMessage("assistant", INITIAL_PROMPT)]
-  ));
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -81,7 +138,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     setIntakeStep("name");
     setIntakeValue("");
     setCustomerName("");
-    setIntakeMessages([makeLocalMessage("assistant", INITIAL_PROMPT)]);
     setContent("");
     setError("");
     setBusy(false);
@@ -109,20 +165,19 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   });
 
   const displayMessages = useMemo(() => {
-    if (!conversation) return intakeMessages;
+    if (!conversation) return [];
 
-    const welcomeMessages = intakeMessages.length > 0
-      ? intakeMessages
-      : [{
-          id: `conversation-${conversation.id}-welcome`,
-          role: "assistant",
-          content: `سلام ${firstName(conversation.customer.name)}، خوش آمدید.\nچه سؤالی دارید؟`,
-          created_at: conversation.started_at,
-          local: true,
-        }];
-
-    return [...welcomeMessages, ...conversation.messages];
-  }, [conversation, intakeMessages]);
+    return [
+      {
+        id: `conversation-${conversation.id}-welcome`,
+        role: "assistant",
+        content: `خیلی خوب، آماده‌ام ${firstName(conversation.customer.name)}.\nچه سؤالی دارید؟`,
+        created_at: conversation.started_at,
+        local: true,
+      },
+      ...(conversation.messages || []),
+    ];
+  }, [conversation]);
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -132,19 +187,15 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     inputRef.current?.focus();
   }, [conversation?.id, intakeStep]);
 
-  const submitIntake = async () => {
+  const submitIntake = async (event) => {
+    event.preventDefault();
     const value = intakeValue.trim();
     if (!value || busy) return;
 
     setError("");
 
-    if (intakeStep === "name") {
+    if (intakeStep !== "phone") {
       setCustomerName(value);
-      setIntakeMessages((messages) => [
-        ...messages,
-        makeLocalMessage("customer", value),
-        makeLocalMessage("assistant", `ممنون ${firstName(value)}.\nحالا شماره موبایل‌تان را وارد کنید.`),
-      ]);
       setIntakeValue("");
       setIntakeStep("phone");
       return;
@@ -156,11 +207,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         name: customerName,
         phone_number: value,
       });
-      setIntakeMessages((messages) => [
-        ...messages,
-        makeLocalMessage("customer", value),
-        makeLocalMessage("assistant", "خیلی خوب، آماده‌ام.\nچه سؤالی دارید؟"),
-      ]);
       setIntakeValue("");
       setIntakeStep("complete");
       onConversationChange(newConversation);
@@ -175,7 +221,8 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     }
   };
 
-  const submitMessage = async () => {
+  const submitMessage = async (event) => {
+    event.preventDefault();
     const trimmedContent = content.trim();
     if (!trimmedContent || busy || !conversation) return;
 
@@ -185,7 +232,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
       const result = await api.sendMessage(conversation.id, trimmedContent);
       onConversationChange({
         ...conversation,
-        messages: [...conversation.messages, result.message],
+        messages: [...(conversation.messages || []), result.message],
       });
       setContent("");
     } catch (requestError) {
@@ -199,15 +246,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     }
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    if (conversation) {
-      await submitMessage();
-    } else {
-      await submitIntake();
-    }
-  };
-
   const handleTextareaKeyDown = (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
@@ -215,89 +253,79 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     }
   };
 
-  const composerValue = conversation ? content : intakeValue;
+  const customerIntakeStep = intakeStep === "phone" ? "phone" : "name";
   const composerDisabled = busy || !online;
-  const composerPlaceholder = !online
-    ? "اتصال شبکه برقرار نیست"
-    : conversation
-      ? "سؤالتان را بنویسید…"
-      : intakeStep === "phone"
-        ? "مثلاً ۰۹۱۲۱۲۳۴۵۶۷"
-        : "نام و نام خانوادگی";
+  const composerPlaceholder = online ? "سؤالتان را بنویسید…" : "اتصال شبکه برقرار نیست";
 
   return (
-    <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-3 sm:p-7 lg:p-9">
-      <div className="chat-frame flex min-h-0 flex-1">
-        <section className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[2rem]">
-          {conversation && (
-            <button className="new-customer-button touch-button absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-2xl px-4 text-sm font-bold text-white sm:left-6 sm:top-6" onClick={onNewCustomer} type="button">
-              <Icon name="refresh" size={18} />
-              مشتری جدید
-            </button>
-          )}
+    <>
+      {!conversation ? (
+        <IntakeScene
+          busy={busy}
+          customerName={customerName}
+          error={error}
+          inputRef={inputRef}
+          intakeStep={customerIntakeStep}
+          intakeValue={intakeValue}
+          onChange={setIntakeValue}
+          onSubmit={submitIntake}
+          online={online}
+        />
+      ) : (
+        <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-3 sm:p-7 lg:p-9">
+          <div className="chat-frame flex min-h-0 flex-1">
+            <section className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[2rem]">
+              <button className="new-customer-button touch-button absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-2xl px-4 text-sm font-bold text-white sm:left-6 sm:top-6" onClick={onNewCustomer} type="button">
+                <Icon name="refresh" size={18} />
+                مشتری جدید
+              </button>
 
-          <div className={`chat-scroll flex-1 overflow-y-auto px-4 pb-8 sm:px-8 sm:pb-10 ${conversation ? "pt-24" : "pt-8 sm:pt-10"}`} aria-live="polite" aria-label="پیام‌های گفتگو">
-            <div className="mx-auto flex max-w-3xl flex-col gap-5">
-              {displayMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
-              <div ref={listEndRef} />
-            </div>
-          </div>
-
-          <footer className="composer-dock border-t border-white/10 px-3 pb-3 pt-3 sm:px-6 sm:pb-5 sm:pt-4">
-            <div className="mx-auto max-w-3xl">
-              {error && (
-                <div className="mb-3 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700" role="alert">
-                  <Icon name="warning" size={18} className="shrink-0" />
-                  <span>{error}</span>
+              <div className="chat-scroll flex-1 overflow-y-auto px-4 pb-8 pt-24 sm:px-8 sm:pb-10" aria-live="polite" aria-label="پیام‌های گفتگو">
+                <div className="mx-auto flex max-w-3xl flex-col gap-5">
+                  {displayMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
+                  <div ref={listEndRef} />
                 </div>
-              )}
+              </div>
 
-              <form className="chat-composer flex items-end gap-2 rounded-[1.4rem] border border-white/60 bg-white p-2 transition focus-within:border-cyan-300 focus-within:ring-4 focus-within:ring-cyan-300/20" onSubmit={handleSubmit}>
-                {conversation ? (
-                  <textarea
-                    aria-label="متن پیام"
-                    autoFocus
-                    className="max-h-32 min-h-14 flex-1 resize-none bg-transparent px-3 py-3.5 leading-7 outline-none placeholder:text-slate-400"
-                    disabled={composerDisabled}
-                    maxLength={2000}
-                    onChange={(event) => setContent(event.target.value)}
-                    onKeyDown={handleTextareaKeyDown}
-                    placeholder={composerPlaceholder}
-                    ref={inputRef}
-                    rows={1}
-                    value={content}
-                  />
-                ) : (
-                  <input
-                    aria-label={intakeStep === "phone" ? "شماره همراه" : "نام و نام خانوادگی"}
-                    autoComplete="off"
-                    autoFocus
-                    className="min-h-14 min-w-0 flex-1 bg-transparent px-3 py-3.5 leading-7 outline-none placeholder:text-slate-400"
-                    dir={intakeStep === "phone" ? "ltr" : "rtl"}
-                    disabled={composerDisabled}
-                    inputMode={intakeStep === "phone" ? "tel" : "text"}
-                    maxLength={intakeStep === "phone" ? 30 : 100}
-                    onChange={(event) => setIntakeValue(event.target.value)}
-                    placeholder={composerPlaceholder}
-                    ref={inputRef}
-                    value={intakeValue}
-                  />
-                )}
+              <footer className="composer-dock border-t border-white/10 px-3 pb-3 pt-3 sm:px-6 sm:pb-5 sm:pt-4">
+                <div className="mx-auto max-w-3xl">
+                  {error && (
+                    <div className="mb-3 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700" role="alert">
+                      <Icon name="warning" size={18} className="shrink-0" />
+                      <span>{error}</span>
+                    </div>
+                  )}
 
-                <button
-                  aria-label={conversation ? "ارسال پیام" : intakeStep === "phone" ? "شروع گفتگو" : "ادامه"}
-                  className="send-button-3d grid h-14 w-14 shrink-0 place-items-center rounded-[1.1rem] text-white transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-600/25 disabled:cursor-not-allowed disabled:opacity-40"
-                  disabled={composerDisabled || !composerValue.trim()}
-                  type="submit"
-                >
-                  {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="send" size={22} />}
-                </button>
-              </form>
+                  <form className="chat-composer flex items-end gap-2 rounded-[1.4rem] border border-white/60 bg-white p-2 transition focus-within:border-cyan-300 focus-within:ring-4 focus-within:ring-cyan-300/20" onSubmit={submitMessage}>
+                    <textarea
+                      aria-label="متن پیام"
+                      autoFocus
+                      className="max-h-32 min-h-14 flex-1 resize-none bg-transparent px-3 py-3.5 leading-7 outline-none placeholder:text-slate-400"
+                      disabled={composerDisabled}
+                      maxLength={2000}
+                      onChange={(event) => setContent(event.target.value)}
+                      onKeyDown={handleTextareaKeyDown}
+                      placeholder={composerPlaceholder}
+                      ref={inputRef}
+                      rows={1}
+                      value={content}
+                    />
 
-            </div>
-          </footer>
-        </section>
-      </div>
+                    <button
+                      aria-label="ارسال پیام"
+                      className="send-button-3d grid h-14 w-14 shrink-0 place-items-center rounded-[1.1rem] text-white transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-600/25 disabled:cursor-not-allowed disabled:opacity-40"
+                      disabled={composerDisabled || !content.trim()}
+                      type="submit"
+                    >
+                      {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="send" size={22} />}
+                    </button>
+                  </form>
+                </div>
+              </footer>
+            </section>
+          </div>
+        </main>
+      )}
 
       <Dialog
         cancelLabel="پایان گفتگو"
@@ -314,6 +342,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
           <span className="mr-2 text-sm">ثانیه تا پایان خودکار</span>
         </div>
       </Dialog>
-    </main>
+    </>
   );
 }

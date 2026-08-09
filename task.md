@@ -582,7 +582,8 @@ The customer flow, accessibility, and touch ergonomics can be validated independ
 - [x] Show unauthenticated users only the login page.
 - [x] Open the protected kiosk flow for authenticated users.
 - [x] Keep the logo and operator logout controls off the customer-facing kiosk screen.
-- [x] Build conversational name and phone intake inside the chat instead of a separate form page.
+- [x] Build conversational name and phone intake before the full chat instead of using a separate conventional form page.
+- [x] Present name and phone intake as two sequential 3D-character speech popovers, then reveal the full chat only after customer creation.
 - [x] Build the chat message list and composer.
 - [x] Add a full-screen gradient 3D environment with CSS-built ambient forms and a readable layered-glass chat surface.
 - [x] Replace the generic assistant icon with a custom transparent 3D female concierge character.

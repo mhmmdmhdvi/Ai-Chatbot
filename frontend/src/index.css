@@ -225,6 +225,105 @@ textarea:focus-visible {
   unicode-bidi: plaintext;
 }
 
+.intake-stage {
+  perspective: 1200px;
+}
+
+.intake-popover {
+  display: flex;
+  width: 100%;
+  max-width: 58rem;
+  align-items: center;
+  justify-content: center;
+  animation: intake-arrive 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.intake-character {
+  position: relative;
+  z-index: 2;
+  width: clamp(12rem, 23vw, 18rem);
+  flex: 0 0 auto;
+  margin-left: -2.5rem;
+  filter:
+    drop-shadow(0 2rem 2rem rgb(1 5 20 / 48%))
+    drop-shadow(0 0 1.7rem rgb(45 212 191 / 26%));
+  transform: translateY(1.4rem) rotateY(-3deg);
+}
+
+.intake-thought-card {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  max-width: 31rem;
+  flex: 1 1 31rem;
+  border: 1px solid rgb(255 255 255 / 72%);
+  border-radius: 2rem;
+  background: linear-gradient(145deg, rgb(255 255 255 / 97%), rgb(235 245 255 / 94%));
+  padding: 2rem;
+  box-shadow:
+    inset 1px 1px 0 white,
+    0 2.25rem 5rem rgb(1 5 20 / 38%),
+    0 0 2.5rem rgb(34 211 238 / 12%);
+  backdrop-filter: blur(24px) saturate(120%);
+  transform-origin: right center;
+  animation: thought-card-pop 300ms cubic-bezier(0.2, 0.85, 0.2, 1.15) both;
+}
+
+.intake-thought-card::after {
+  position: absolute;
+  top: 48%;
+  right: -0.7rem;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-top: 1px solid rgb(255 255 255 / 72%);
+  border-right: 1px solid rgb(255 255 255 / 72%);
+  background: #f4f9ff;
+  content: "";
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.intake-step-label {
+  display: inline-flex;
+  min-height: 1.8rem;
+  align-items: center;
+  border: 1px solid rgb(14 165 233 / 16%);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgb(45 212 191 / 12%), rgb(99 102 241 / 10%));
+  padding-inline: 0.75rem;
+  color: #0e7490;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.intake-input-shell {
+  border: 1px solid #cbdbea;
+  box-shadow:
+    inset 0 1px 2px rgb(15 23 42 / 8%),
+    0 0.8rem 2rem rgb(30 64 175 / 10%);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.intake-input-shell:focus-within {
+  border-color: #22d3ee;
+  box-shadow:
+    0 0 0 4px rgb(34 211 238 / 14%),
+    0 1rem 2.5rem rgb(30 64 175 / 14%);
+  transform: translateY(-1px);
+}
+
+.intake-progress-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: width 180ms ease, background-color 180ms ease;
+}
+
+.intake-progress-dot.is-active {
+  width: 1.4rem;
+  background: linear-gradient(90deg, #14b8a6, #6366f1);
+}
+
 .chat-frame {
   position: relative;
   isolation: isolate;
@@ -366,6 +465,30 @@ textarea:focus-visible {
   to { transform: rotate(360deg); }
 }
 
+@keyframes intake-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem) rotateX(-3deg) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) rotateX(0) scale(1);
+  }
+}
+
+@keyframes thought-card-pop {
+  from {
+    opacity: 0;
+    transform: translateX(0.75rem) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -378,6 +501,35 @@ textarea:focus-visible {
 }
 
 @media (max-width: 639px) {
+  .intake-popover {
+    position: relative;
+    display: block;
+    padding-top: 4.75rem;
+  }
+
+  .intake-character {
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    right: 0.75rem;
+    width: 9.25rem;
+    margin: 0;
+    transform: rotateY(-3deg);
+  }
+
+  .intake-thought-card {
+    width: 100%;
+    max-width: none;
+    border-radius: 1.6rem;
+    padding: 5rem 1.15rem 1.15rem;
+  }
+
+  .intake-thought-card::after {
+    top: -0.65rem;
+    right: 4.8rem;
+    transform: rotate(-45deg);
+  }
+
   .ambient-sphere-one {
     top: -8rem;
     right: -10rem;
