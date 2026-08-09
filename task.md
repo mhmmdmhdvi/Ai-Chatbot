@@ -31,7 +31,7 @@ These decisions are requirements unless the project owner explicitly changes the
 - [x] Authentication uses Django's server-side session system and secure cookies.
 - [x] Login is an owner/operator gate that protects the live website and AI API usage.
 - [x] Customers do not receive accounts and do not see the login credentials.
-- [x] After the kiosk is authenticated, each customer enters a name and phone number before chatting.
+- [x] After the kiosk is authenticated, the assistant asks each customer for a name and phone number inside the conversation before accepting questions.
 - [x] Starting a new customer session clears the previous conversation from the screen but keeps the kiosk account logged in.
 - [x] Customer information and complete conversations are stored in PostgreSQL and displayed in the protected Django Admin.
 
@@ -69,9 +69,9 @@ Persian login page
         |
         | Django validates the normal kiosk/chat account
         v
-Protected customer intake screen
+Protected conversation screen
         |
-        | Customer enters name and phone number
+        | Assistant asks for customer name, then phone number
         v
 Create Customer + Conversation in PostgreSQL
         |
@@ -582,7 +582,7 @@ The customer flow, accessibility, and touch ergonomics can be validated independ
 - [x] Show unauthenticated users only the login page.
 - [x] Open the protected kiosk flow for authenticated users.
 - [x] Add a controlled logout action with confirmation for staff/operator use.
-- [x] Build the name and phone form.
+- [x] Build conversational name and phone intake inside the chat instead of a separate form page.
 - [x] Build the chat message list and composer.
 - [x] Add large touch targets and readable typography.
 - [x] Use a Persian right-to-left layout throughout the customer experience.
@@ -591,7 +591,7 @@ The customer flow, accessibility, and touch ergonomics can be validated independ
 - [ ] Add the streaming state when AI streaming is implemented in Phase 4.
 - [x] Add start-new-conversation and confirmation behavior.
 - [x] Add a three-minute inactivity timeout with a 30-second warning that clears the customer but keeps the kiosk account logged in.
-- [x] Return to the customer name/phone form after a manual or automatic customer reset.
+- [x] Return to the assistant's first name prompt after a manual or automatic customer reset.
 - [x] Never show the previous customer's name, phone number, or messages to the next customer after reset.
 - [x] Prevent accidental double submission.
 - [ ] Test the Windows on-screen keyboard on the physical stand; responsive 390px and desktop viewport checks pass in software.
@@ -601,7 +601,7 @@ The customer flow, accessibility, and touch ergonomics can be validated independ
 - `KioskShell`
 - `LoginPage`
 - `ProtectedRoute`
-- `CustomerForm`
+- `ConversationalIntake`
 - `ChatPanel`
 - `MessageList`
 - `MessageBubble`
@@ -627,7 +627,7 @@ Consume the Phase 2 authentication, customer, and conversation endpoints.
 
 ### AI considerations
 
-Keep AI disabled. Store customer messages and show a clear Persian development notice; do not create fake assistant responses.
+Keep AI disabled. Store customer messages without creating fake assistant answers. Intake prompts are deterministic interface messages and do not claim to be AI-generated answers.
 
 ### Security considerations
 
@@ -653,7 +653,7 @@ Keep AI disabled. Store customer messages and show a clear Persian development n
 - [x] Valid credentials open the protected chatbot.
 - [x] Invalid credentials show a generic Persian error.
 - [x] Customer-session reset does not unintentionally log out the kiosk account.
-- [x] Starting a new customer returns to the name/phone form with no previous customer data visible.
+- [x] Starting a new customer returns to the first conversational intake prompt with no previous customer data visible.
 - [x] Customer intake and stored-message conversation work end to end while AI is disabled.
 - [ ] The interface is comfortable on the target touchscreen size.
 - [x] Persian RTL layout and embedded left-to-right content display correctly in software viewport checks.
@@ -661,10 +661,10 @@ Keep AI disabled. Store customer messages and show a clear Persian development n
 
 Phase 3 software verification completed on 2026-08-09:
 
-- Six frontend interaction tests passed: login gate, generic login error, valid login flow, expired-session handling, confirmed logout, customer intake, mixed Persian/English message storage, and customer reset.
+- Six frontend interaction tests passed: login gate, generic login error, valid login flow, expired-session handling, confirmed logout, conversational customer intake, mixed Persian/English message storage, and customer reset.
 - Frontend production build passed.
-- Desktop visual inspection passed at 1440 × 900.
-- Narrow viewport layout passed at 390 × 844 with no horizontal overflow.
+- The simplified conversational-intake redesign was visually inspected at 1440 × 900.
+- The redesigned narrow viewport passed at 390 × 844 with no horizontal overflow.
 - Physical stand, touch comfort, and Windows on-screen-keyboard testing remain pending.
 
 ---

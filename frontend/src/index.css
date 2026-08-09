@@ -3,7 +3,7 @@
 :root {
   font-family: Tahoma, "Segoe UI", Arial, sans-serif;
   color: #0f172a;
-  background: #f3f6f4;
+  background: #f5f7f6;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -42,10 +42,10 @@ textarea:focus-visible {
 }
 
 .app-background {
-  background-color: #f3f6f4;
+  background-color: #f5f7f6;
   background-image:
-    radial-gradient(circle at 8% 5%, rgb(13 148 136 / 9%), transparent 26rem),
-    radial-gradient(circle at 92% 95%, rgb(245 158 11 / 7%), transparent 24rem);
+    radial-gradient(circle at 8% 4%, rgb(13 148 136 / 7%), transparent 28rem),
+    radial-gradient(circle at 94% 96%, rgb(15 23 42 / 4%), transparent 26rem);
 }
 
 .login-pattern {
@@ -129,6 +129,14 @@ textarea:focus-visible {
 
 .mixed-content {
   unicode-bidi: plaintext;
+}
+
+.chat-surface {
+  min-height: min(680px, calc(100dvh - 6.5rem));
+}
+
+.chat-composer {
+  box-shadow: 0 8px 28px rgb(15 23 42 / 5%);
 }
 
 .chat-scroll {

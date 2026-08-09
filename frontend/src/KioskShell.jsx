@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 import Dialog from "./components/Dialog";
-import { Icon, LogoMark } from "./components/Icons";
+import { Icon } from "./components/Icons";
 import ChatPanel from "./features/chat/ChatPanel";
-import CustomerForm from "./features/customer/CustomerForm";
 import { ApiError, api } from "./services/api";
 
 
@@ -12,6 +11,7 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [loggingOut, setLoggingOut] = useState(false);
   const [online, setOnline] = useState(() => navigator.onLine);
@@ -53,6 +53,7 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
 
   const resetCustomer = useCallback(async (conversationId) => {
     setConversation(null);
+    if (!conversationId) return;
     try {
       await api.closeConversation(conversationId);
     } catch (requestError) {
@@ -93,9 +94,11 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
   };
 
   return (
-    <div className="app-background flex min-h-screen flex-col">
-      <header className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 sm:px-8 sm:py-5">
-        <LogoMark compact />
+    <div className="app-background flex min-h-dvh flex-col">
+      <header className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-3 sm:px-8 sm:py-4">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-teal-700 text-white shadow-md shadow-teal-900/15" aria-label="صفحه گفتگو">
+          <Icon name="sparkles" size={22} />
+        </span>
         <div className="flex items-center gap-2">
           {!online && (
             <span className="hidden items-center gap-2 rounded-full bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 sm:flex" role="status">
@@ -103,9 +106,20 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
               بدون اتصال
             </span>
           )}
-          <button className="touch-button inline-flex items-center gap-2 rounded-2xl px-3 text-sm font-bold text-slate-500 hover:bg-white hover:text-slate-800" onClick={() => { setLogoutError(""); setLogoutDialogOpen(true); }} type="button">
+          {conversation && (
+            <button
+              aria-label="مشتری جدید"
+              className="touch-button inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-700 shadow-sm hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 sm:px-4"
+              onClick={() => setResetDialogOpen(true)}
+              type="button"
+            >
+              <Icon name="refresh" size={18} />
+              <span className="hidden sm:inline">مشتری جدید</span>
+            </button>
+          )}
+          <button aria-label="خروج اپراتور" className="touch-button inline-flex items-center gap-2 rounded-2xl px-3 text-sm font-bold text-slate-500 hover:bg-white hover:text-slate-800" onClick={() => { setLogoutError(""); setLogoutDialogOpen(true); }} type="button">
             <Icon name="logout" size={19} />
-            <span className="hidden sm:inline">خروج اپراتور</span>
+            <span className="hidden sm:inline">خروج</span>
           </button>
         </div>
       </header>
@@ -126,18 +140,29 @@ export default function KioskShell({ user, onLogout, onSessionExpired }) {
             <button className="primary-button mt-6 w-full" onClick={() => loadCurrentSession()} type="button"><Icon name="refresh" />تلاش دوباره</button>
           </section>
         </main>
-      ) : conversation ? (
+      ) : (
         <ChatPanel
           conversation={conversation}
-          key={conversation.id}
           onConversationChange={setConversation}
           onReset={resetCustomer}
           onSessionExpired={onSessionExpired}
           online={online}
         />
-      ) : (
-        <CustomerForm onSessionExpired={onSessionExpired} onStart={setConversation} />
       )}
+
+      <Dialog
+        cancelLabel="ادامه گفتگو"
+        confirmLabel="شروع برای مشتری جدید"
+        description="نام، شماره همراه و پیام‌های این مشتری از صفحه پاک می‌شود. گفتگو برای بررسی مدیر در سامانه باقی می‌ماند."
+        onCancel={() => setResetDialogOpen(false)}
+        onConfirm={() => {
+          const conversationId = conversation?.id;
+          setResetDialogOpen(false);
+          resetCustomer(conversationId);
+        }}
+        open={resetDialogOpen}
+        title="گفتگوی فعلی پایان یابد؟"
+      />
 
       <Dialog
         cancelLabel="ماندن در سامانه"

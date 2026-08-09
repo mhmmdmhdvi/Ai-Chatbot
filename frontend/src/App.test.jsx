@@ -67,7 +67,7 @@ describe("Persian kiosk application", () => {
     expect((await screen.findByRole("alert")).textContent).toContain("نام کاربری یا رمز عبور نادرست است.");
   });
 
-  it("opens customer intake after a valid kiosk login", async () => {
+  it("opens conversational customer intake after a valid kiosk login", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url) => {
       if (url === "/api/v1/auth/me/") return jsonResponse({ detail: "Authentication required" }, 403);
       if (url === "/api/v1/auth/csrf/") return jsonResponse({ detail: "ok" });
@@ -82,8 +82,9 @@ describe("Persian kiosk application", () => {
     await user.type(screen.getByLabelText("رمز عبور"), "Strong-password");
     await user.click(screen.getByRole("button", { name: "ورود به سامانه" }));
 
-    expect(await screen.findByRole("heading", { name: "لطفاً خودتان را معرفی کنید" })).toBeTruthy();
-    expect(screen.getByText("خروج اپراتور")).toBeTruthy();
+    expect(await screen.findByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeTruthy();
+    expect(screen.getByLabelText("نام و نام خانوادگی")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "خروج اپراتور" })).toBeTruthy();
   });
 
   it("returns to the login gate when the kiosk session has expired", async () => {
@@ -95,7 +96,7 @@ describe("Persian kiosk application", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "ورود اپراتور" })).toBeTruthy();
-    expect(screen.queryByRole("heading", { name: "لطفاً خودتان را معرفی کنید" })).toBeNull();
+    expect(screen.queryByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeNull();
   });
 
   it("logs the operator out only after confirmation", async () => {
@@ -149,22 +150,23 @@ describe("Persian kiosk application", () => {
     render(<App />);
 
     await user.type(await screen.findByLabelText("نام و نام خانوادگی"), "سارا احمدی");
+    await user.click(screen.getByRole("button", { name: "ادامه" }));
+    expect(await screen.findByText(/ممنون سارا/)).toBeTruthy();
     await user.type(screen.getByLabelText("شماره همراه"), "09121234567");
     await user.click(screen.getByRole("button", { name: "شروع گفتگو" }));
 
-    expect(await screen.findByRole("heading", { name: "گفتگوی سارا احمدی" })).toBeTruthy();
+    expect(await screen.findByText(/خیلی خوب، آماده‌ام/)).toBeTruthy();
     const composer = screen.getByLabelText("متن پیام");
     await user.type(composer, "قیمت مدل X200 چقدر است؟");
     await user.click(screen.getByRole("button", { name: "ارسال پیام" }));
 
     const message = await screen.findByText("قیمت مدل X200 چقدر است؟");
     expect(message.getAttribute("dir")).toBe("auto");
-    expect(screen.getByText("پیام شما ذخیره شد.")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "مشتری جدید" }));
     await user.click(screen.getByRole("button", { name: "شروع برای مشتری جدید" }));
 
-    expect(await screen.findByRole("heading", { name: "لطفاً خودتان را معرفی کنید" })).toBeTruthy();
+    expect(await screen.findByText(/برای شروع، لطفاً نام و نام خانوادگی‌تان را بنویسید/)).toBeTruthy();
     expect(screen.queryByText("سارا احمدی")).toBeNull();
     expect(screen.queryByText("قیمت مدل X200 چقدر است؟")).toBeNull();
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => url.endsWith("/close/"))).toBe(true));
