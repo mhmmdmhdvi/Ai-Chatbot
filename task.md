@@ -4,9 +4,9 @@
 
 This file is the working implementation plan for the AI Customer Assistant project. Keep it updated as decisions are made and phases are completed.
 
-Planning status: **Phase 1 complete — next implementation phase is Phase 2**
+Planning status: **Phase 2 backend implemented — create local accounts, then begin Phase 3**
 
-No application code or project packages should be added until the Phase 0 decisions are approved.
+AI provider integration remains deferred until provider eligibility and credentials are available. Non-AI application work can continue independently.
 
 ---
 
@@ -260,7 +260,7 @@ Provider eligibility, customer privacy, document quality, and expected answer be
 
 - [ ] Resolve the AI provider eligibility questions above.
 - [ ] Define the first release's exact scope and exclusions.
-- [ ] Define supported phone-number countries and normalization rules.
+- [x] Define the initial supported phone-number country as Iran and normalize valid numbers to E.164.
 - [x] Define the first version's customer-facing language as Persian.
 - [x] Define login as mandatory and public registration as unavailable.
 - [x] Define login as an owner/operator kiosk gate, not a customer account system.
@@ -442,26 +442,27 @@ The live chatbot must not be publicly accessible, while customer names, phone nu
 
 ### Tasks
 
-- [ ] Add a Persian login endpoint backed by Django authentication.
-- [ ] Add logout and current-user endpoints.
-- [ ] Do not add a registration endpoint.
+- [x] Add a Persian login endpoint backed by Django authentication.
+- [x] Add logout and current-user endpoints.
+- [x] Do not add a registration endpoint.
 - [ ] Create a separate Django superuser for administration.
 - [ ] Create one normal active chatbot user through Django Admin.
 - [ ] Ensure the chatbot user is not staff and is not a superuser.
-- [ ] Require authentication for all customer, conversation, message, and AI endpoints.
-- [ ] Rotate/renew the authenticated session through Django's standard login flow.
-- [ ] Add `Customer`, `Conversation`, and `Message` models.
-- [ ] Normalize and validate phone numbers on the backend.
-- [ ] Create a new conversation for each kiosk visit.
-- [ ] Use non-sequential public conversation identifiers.
-- [ ] Prevent phone-number-only access to historical conversations.
-- [ ] Record timestamps, conversation status, role, and message text.
-- [ ] Leave a minimal nullable field or future path for kiosk identification.
-- [ ] Register customers, conversations, messages, and usage records in Django Admin.
-- [ ] Add Django Admin search for customer name and normalized phone number.
-- [ ] Add conversation filters for date, status, and customer.
-- [ ] Make conversation messages easy to review in chronological order.
-- [ ] Make sensitive conversation records read-only in Django Admin unless an explicit edit/delete workflow is approved.
+- [x] Require authentication for all customer, conversation, and message endpoints; apply the same default to future AI endpoints.
+- [x] Rotate/renew the authenticated session through Django's standard login flow.
+- [x] Add `Customer`, `Conversation`, and `Message` models.
+- [x] Normalize and validate Iranian phone numbers on the backend.
+- [x] Create a new conversation for each kiosk visit.
+- [x] Use non-sequential public conversation identifiers.
+- [x] Prevent phone-number-only access to historical conversations.
+- [x] Record timestamps, conversation status, role, and message text.
+- [x] Leave a minimal nullable field or future path for kiosk identification.
+- [x] Register customers, conversations, and messages in Django Admin.
+- [ ] Add AI usage records to Django Admin when the AI provider is implemented in Phase 4.
+- [x] Add Django Admin search for customer name and normalized phone number.
+- [x] Add conversation filters for date, status, and customer.
+- [x] Make conversation messages easy to review in chronological order.
+- [x] Make sensitive conversation records read-only in Django Admin unless an explicit edit/delete workflow is approved.
 
 ### Files/architecture
 
@@ -494,17 +495,19 @@ The live chatbot must not be publicly accessible, while customer names, phone nu
 
 ### API endpoints
 
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/logout`
-- `GET /api/v1/auth/me`
-- `POST /api/v1/sessions`
-- `GET /api/v1/conversations/{uuid}/messages`
-- `POST /api/v1/conversations/{uuid}/messages`
-- `POST /api/v1/conversations/{uuid}/close`
+- `GET /api/v1/auth/csrf/`
+- `POST /api/v1/auth/login/`
+- `POST /api/v1/auth/logout/`
+- `GET /api/v1/auth/me/`
+- `POST /api/v1/sessions/`
+- `GET /api/v1/sessions/current/`
+- `GET /api/v1/conversations/{uuid}/messages/`
+- `POST /api/v1/conversations/{uuid}/messages/`
+- `POST /api/v1/conversations/{uuid}/close/`
 
 ### AI considerations
 
-Use a deterministic placeholder response until Phase 4.
+Keep AI disabled until Phase 4. Store customer messages normally and return `ai_status: "disabled"`; do not make provider calls or create fake assistant answers.
 
 ### Security considerations
 
@@ -538,16 +541,24 @@ Use a deterministic placeholder response until Phase 4.
 
 ### Definition of Done
 
-- [ ] Unauthenticated visitors cannot access the chatbot or its APIs.
+- [x] Unauthenticated visitors cannot access customer, conversation, or message APIs.
 - [ ] The normal chatbot user can log in and log out.
-- [ ] The chatbot user cannot access Django Admin.
-- [ ] No public registration endpoint or page exists.
-- [ ] Valid customers and conversations can be created.
-- [ ] Invalid input is rejected safely.
-- [ ] Messages persist in PostgreSQL.
-- [ ] One customer cannot retrieve another session's messages.
-- [ ] The administrator can find a customer and review that customer's conversations and chronological messages in Django Admin.
-- [ ] The normal kiosk/chat user cannot access customer records through Django Admin.
+- [x] The chatbot user role cannot access Django Admin.
+- [x] No public registration endpoint or page exists.
+- [x] Valid customers and conversations can be created.
+- [x] Invalid input is rejected safely.
+- [x] Messages persist in PostgreSQL.
+- [x] One customer cannot retrieve another session's messages.
+- [x] The administrator can find a customer and review that customer's conversations and chronological messages in Django Admin.
+- [x] The normal kiosk/chat user cannot access customer records through Django Admin.
+
+Phase 2 backend verification completed on 2026-08-09:
+
+- Django system check: passed.
+- Database migration: applied successfully.
+- Backend test suite: 21 tests passed.
+- Verified CSRF enforcement, session rotation, generic Persian login errors, and database-backed login lockout.
+- Verified phone validation, UUID conversation isolation, new-customer reset, message persistence, and Django Admin access separation.
 
 ---
 
@@ -1373,10 +1384,7 @@ Preferred production starting point for additional headroom:
 
 ## Next action
 
-Complete Phase 0 before implementation:
-
-1. Confirm the AI provider can legally and operationally serve the intended business, server, and kiosk locations.
-2. Define customer-data consent and retention rules.
-3. Provide representative company documents.
-4. Confirm Docker Desktop licensing is acceptable for the company.
-5. Approve the initial architecture and Phase 1 setup.
+1. Create a separate Django superuser and normal non-staff kiosk account.
+2. Begin Phase 3: build the Persian RTL login, customer intake, and chatbot screens against the completed backend APIs.
+3. Keep AI/provider work disabled until eligibility is confirmed and credentials are available.
+4. Before using real customer data, define the consent, retention, and administrator-access rules.

@@ -4,7 +4,9 @@ A Docker-first Persian touchscreen customer assistant built with React, Tailwind
 
 ## Current status
 
-Phase 1 establishes the repository, containers, database, Django health endpoint, custom user model, and a minimal Persian RTL frontend. Authentication, customer intake, chat, document retrieval, and AI integration are implemented in later phases described in `task.md`.
+Phase 2 backend implementation is complete. The project now has protected Django session login, CSRF handling, failed-login lockout, Iranian phone validation, customer/conversation/message storage, and read-only conversation review in Django Admin. The Persian touchscreen frontend is the next phase.
+
+AI integration is intentionally disabled. No OpenAI package or API key is required at this stage, and the message API reports `ai_status: "disabled"`.
 
 ## Prerequisites
 
@@ -27,11 +29,35 @@ Open:
 - Backend health: http://localhost:8000/api/v1/health/
 - Django Admin: http://localhost:8000/admin/
 
+## Create the two application users
+
+Create the administrator interactively inside Docker:
+
+```bash
+docker compose -f compose.yaml -f compose.dev.yaml exec backend python manage.py createsuperuser
+```
+
+Then sign in at http://localhost:8000/admin/ and create a separate kiosk user under **Users**. Keep **Active** enabled and leave **Staff status** and **Superuser status** disabled. The administrator and kiosk must not share credentials.
+
+## Backend API
+
+- `GET /api/v1/auth/csrf/` prepares the CSRF cookie.
+- `POST /api/v1/auth/login/` logs in the kiosk user. Five failed attempts cause a 15-minute lockout for that username/IP combination.
+- `GET /api/v1/auth/me/` returns the current kiosk user.
+- `POST /api/v1/auth/logout/` ends the kiosk login.
+- `POST /api/v1/sessions/` validates an Iranian phone number and starts a fresh customer conversation.
+- `GET /api/v1/sessions/current/` returns the active customer conversation.
+- `GET|POST /api/v1/conversations/{uuid}/messages/` reads or stores messages for only the active browser session.
+- `POST /api/v1/conversations/{uuid}/close/` clears the customer session without logging out the kiosk.
+
+The browser must send the current `X-CSRFToken` value for every state-changing request. Django rotates that token after login.
+
 ## Run checks
 
 ```bash
 docker compose -f compose.yaml -f compose.dev.yaml run --rm backend python manage.py check
 docker compose -f compose.yaml -f compose.dev.yaml run --rm backend python manage.py test
+docker compose -f compose.yaml -f compose.dev.yaml run --rm backend python manage.py makemigrations --check --dry-run
 docker compose -f compose.yaml -f compose.dev.yaml run --rm frontend npm test
 docker compose -f compose.yaml -f compose.dev.yaml run --rm frontend npm run build
 ```
