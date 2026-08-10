@@ -97,7 +97,7 @@ export default function KioskShell({ onSessionExpired }) {
 
       <Dialog
         cancelLabel="ادامه گفتگو"
-        confirmLabel="شروع برای مشتری جدید"
+        confirmLabel="شروع چت جدید"
         description="نام، شماره همراه و پیام‌های این مشتری از صفحه پاک می‌شود. گفتگو برای بررسی مدیر در سامانه باقی می‌ماند."
         onCancel={() => setResetDialogOpen(false)}
         onConfirm={() => {

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import assistantAvatar from "../../assets/assistant-avatar.webp";
+import customerAvatar from "../../assets/customer-avatar.webp";
+import customerGuideAvatar from "../../assets/customer-guide-avatar.webp";
 import Dialog from "../../components/Dialog";
 import { Icon } from "../../components/Icons";
 import useIdleTimeout from "../../hooks/useIdleTimeout";
@@ -23,7 +25,7 @@ function MessageBubble({ message }) {
     : "";
 
   return (
-    <article className={`message-row flex w-full items-end gap-2.5 ${customer ? "justify-end" : "justify-start"}`}>
+    <article className={`message-row flex w-full items-end gap-2.5 ${customer ? "justify-end" : "justify-start"}`} dir="ltr">
       {!customer && (
         <img
           alt=""
@@ -54,6 +56,14 @@ function MessageBubble({ message }) {
           </time>
         )}
       </div>
+      {customer && (
+        <img
+          alt=""
+          aria-hidden="true"
+          className="customer-avatar h-[4.5rem] w-[4.5rem] shrink-0 object-contain object-bottom sm:h-20 sm:w-20"
+          src={customerAvatar}
+        />
+      )}
     </article>
   );
 }
@@ -80,7 +90,7 @@ function IntakeScene({ busy, customerName, error, inputRef, intakeStep, intakeVa
           alt=""
           aria-hidden="true"
           className="intake-character"
-          src={assistantAvatar}
+          src={customerGuideAvatar}
         />
 
         <div className="intake-thought-card" key={intakeStep} aria-live="polite">
@@ -356,7 +366,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
             <section className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[2rem]">
               <button className="new-customer-button touch-button absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-2xl px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:left-6 sm:top-6" disabled={busy} onClick={onNewCustomer} type="button">
                 <Icon name="refresh" size={18} />
-                مشتری جدید
+                چت جدید
               </button>
 
               <div className="chat-scroll flex-1 overflow-y-auto px-4 pb-8 pt-24 sm:px-8 sm:pb-10" aria-live="polite" aria-label="پیام‌های گفتگو">

@@ -488,6 +488,13 @@ textarea:focus-visible {
   transform: translateY(0.35rem);
 }
 
+.customer-avatar {
+  filter:
+    drop-shadow(0 0.8rem 0.9rem rgb(1 5 20 / 42%))
+    drop-shadow(0 0 0.85rem rgb(139 92 246 / 30%));
+  transform: translateY(0.35rem);
+}
+
 .message-bubble {
   position: relative;
 }

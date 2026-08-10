@@ -102,7 +102,9 @@ describe("Persian kiosk application", () => {
     expect(screen.queryByText(/مرحله [۱۲] از ۲/)).toBeNull();
     expect(screen.queryByText("نام، شماره و متن گفتگو در سامانه مجموعه ثبت می‌شود.")).toBeNull();
     expect(screen.queryByRole("button", { name: "خروج اپراتور" })).toBeNull();
-    expect(document.querySelector("img.intake-character")).not.toBeNull();
+    const intakeCharacter = document.querySelector("img.intake-character");
+    expect(intakeCharacter).not.toBeNull();
+    expect(intakeCharacter.getAttribute("src")).toContain("customer-guide-avatar");
     expect(screen.queryByLabelText("پیام‌های گفتگو")).toBeNull();
   });
 
@@ -193,14 +195,24 @@ describe("Persian kiosk application", () => {
 
     const message = await screen.findByText("قیمت مدل X200 چقدر است؟");
     expect(message.getAttribute("dir")).toBe("auto");
-    expect(await screen.findByText("هنوز اطلاعات قیمت مدل X200 را در اختیار ندارم.")).toBeTruthy();
+    const customerMessageRow = message.closest("article");
+    expect(customerMessageRow.getAttribute("dir")).toBe("ltr");
+    expect(customerMessageRow.className).toContain("justify-end");
+    expect(customerMessageRow.querySelector("img.customer-avatar")).not.toBeNull();
+    expect(customerMessageRow.querySelector("img.assistant-avatar")).toBeNull();
+    const assistantMessage = await screen.findByText("هنوز اطلاعات قیمت مدل X200 را در اختیار ندارم.");
+    const assistantMessageRow = assistantMessage.closest("article");
+    expect(assistantMessageRow.getAttribute("dir")).toBe("ltr");
+    expect(assistantMessageRow.className).toContain("justify-start");
+    expect(assistantMessageRow.querySelector("img.assistant-avatar")).not.toBeNull();
+    expect(assistantMessageRow.querySelector("img.customer-avatar")).toBeNull();
     const streamRequest = fetchMock.mock.calls.find(
       ([url, options = {}]) => url.endsWith("/messages/") && options.method === "POST",
     );
     expect(streamRequest[1].headers.Accept).toBe("text/event-stream, application/json");
 
-    await user.click(screen.getByRole("button", { name: "مشتری جدید" }));
-    await user.click(screen.getByRole("button", { name: "شروع برای مشتری جدید" }));
+    await user.click(screen.getByRole("button", { name: "چت جدید" }));
+    await user.click(screen.getByRole("button", { name: "شروع چت جدید" }));
 
     expect(await screen.findByText(/لطفاً اسمتون رو وارد کنید/)).toBeTruthy();
     expect(screen.queryByText("سارا احمدی")).toBeNull();
