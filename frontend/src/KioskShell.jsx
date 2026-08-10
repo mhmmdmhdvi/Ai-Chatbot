@@ -63,9 +63,13 @@ export default function KioskShell({ onSessionExpired }) {
   return (
     <div className="app-background gradient-world flex min-h-dvh flex-col">
       <div className="ambient-scene" aria-hidden="true">
+        <span className="ambient-ribbon ambient-ribbon-one" />
+        <span className="ambient-ribbon ambient-ribbon-two" />
         <span className="ambient-sphere ambient-sphere-one" />
         <span className="ambient-sphere ambient-sphere-two" />
         <span className="ambient-ring" />
+        <span className="ambient-signal ambient-signal-one" />
+        <span className="ambient-signal ambient-signal-two" />
       </div>
 
       {loading ? (
