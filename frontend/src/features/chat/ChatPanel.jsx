@@ -9,8 +9,8 @@ import useIdleTimeout from "../../hooks/useIdleTimeout";
 import { ApiError, api } from "../../services/api";
 
 
-const IDLE_TIMEOUT_MS = 3 * 60 * 1000;
-const IDLE_WARNING_MS = 30 * 1000;
+export const IDLE_INACTIVITY_MS = 30 * 1000;
+export const IDLE_WARNING_MS = 10 * 1000;
 
 
 function firstName(name) {
@@ -185,7 +185,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
 
   const { warningOpen, secondsLeft, stayActive } = useIdleTimeout({
     enabled: true,
-    timeoutMs: IDLE_TIMEOUT_MS,
+    idleMs: IDLE_INACTIVITY_MS,
     warningMs: IDLE_WARNING_MS,
     onTimeout: handleIdleTimeout,
   });
@@ -417,9 +417,9 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
       )}
 
       <Dialog
-        cancelLabel="پایان گفتگو"
+        cancelLabel="شروع چت جدید"
         confirmLabel="ادامه گفتگو"
-        description="برای حفظ حریم خصوصی، در صورت نبود فعالیت این گفتگو بسته و اطلاعات مشتری از صفحه پاک می‌شود."
+        description="اگر هنوز مشغول گفتگو هستید، ادامه گفتگو را بزنید؛ در غیر این صورت برای حفظ حریم خصوصی، چت جدید به‌طور خودکار شروع می‌شود."
         onCancel={handleIdleTimeout}
         onConfirm={stayActive}
         open={warningOpen}
@@ -428,7 +428,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
       >
         <div className="rounded-2xl bg-amber-50 p-4 text-center text-amber-900">
           <strong className="text-2xl tabular-nums">{secondsLeft}</strong>
-          <span className="mr-2 text-sm">ثانیه تا پایان خودکار</span>
+          <span className="mr-2 text-sm">ثانیه تا شروع چت جدید</span>
         </div>
       </Dialog>
     </>

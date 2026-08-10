@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 
-export default function useIdleTimeout({ enabled, timeoutMs, warningMs, onTimeout }) {
+export default function useIdleTimeout({ enabled, idleMs, warningMs, onTimeout }) {
   const [warningOpen, setWarningOpen] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(Math.ceil(warningMs / 1000));
   const timersRef = useRef([]);
@@ -31,15 +31,15 @@ export default function useIdleTimeout({ enabled, timeoutMs, warningMs, onTimeou
         if (remaining > 0) timersRef.current.push(window.setTimeout(tick, 1000));
       };
       tick();
-    }, Math.max(0, timeoutMs - warningMs));
+    }, idleMs);
 
     const timeoutTimer = window.setTimeout(() => {
       setWarningOpen(false);
       onTimeoutRef.current();
-    }, timeoutMs);
+    }, idleMs + warningMs);
 
     timersRef.current.push(warningTimer, timeoutTimer);
-  }, [clearTimers, enabled, timeoutMs, warningMs]);
+  }, [clearTimers, enabled, idleMs, warningMs]);
 
   useEffect(() => {
     if (!enabled) {

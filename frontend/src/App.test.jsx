@@ -212,6 +212,10 @@ describe("Persian kiosk application", () => {
     expect(streamRequest[1].headers.Accept).toBe("text/event-stream, application/json");
 
     await user.click(screen.getByRole("button", { name: "چت جدید" }));
+    const resetDialog = screen.getByRole("dialog", { name: "گفتگوی فعلی پایان یابد؟" });
+    expect(resetDialog.parentElement.className).toContain("dialog-backdrop");
+    expect(resetDialog.parentElement.className).toContain("place-items-center");
+    expect(resetDialog.parentElement.parentElement).toBe(document.body);
     await user.click(screen.getByRole("button", { name: "شروع چت جدید" }));
 
     expect(await screen.findByText(/لطفاً اسمتون رو وارد کنید/)).toBeTruthy();

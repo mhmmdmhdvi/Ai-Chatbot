@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 import { Icon } from "./Icons";
 
@@ -22,8 +23,8 @@ export default function Dialog({ open, title, description, confirmLabel, cancelL
     ? "bg-teal-700 text-white hover:bg-teal-800 focus-visible:ring-teal-600"
     : "bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-500";
 
-  return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-5 backdrop-blur-sm" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
+  return createPortal(
+    <div className="dialog-backdrop fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-5 backdrop-blur-sm" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onCancel()}>
       <section
         aria-describedby="dialog-description"
         aria-labelledby="dialog-title"
@@ -50,6 +51,7 @@ export default function Dialog({ open, title, description, confirmLabel, cancelL
           </button>
         </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 }
