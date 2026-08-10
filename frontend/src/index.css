@@ -284,6 +284,7 @@ textarea:focus-visible {
   max-width: 60rem;
   align-items: center;
   justify-content: center;
+  gap: clamp(1.5rem, 3vw, 3rem);
   transform-style: preserve-3d;
   animation: intake-arrive 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
@@ -308,7 +309,7 @@ textarea:focus-visible {
   z-index: 2;
   width: clamp(12rem, 23vw, 18rem);
   flex: 0 0 auto;
-  margin-left: -2.5rem;
+  margin-left: 0;
   filter:
     drop-shadow(0 2rem 2rem rgb(1 5 20 / 48%))
     drop-shadow(0 0 1.7rem rgb(45 212 191 / 26%));
