@@ -189,6 +189,10 @@ describe("Persian kiosk application", () => {
     const message = await screen.findByText("قیمت مدل X200 چقدر است؟");
     expect(message.getAttribute("dir")).toBe("auto");
     expect(await screen.findByText("هنوز اطلاعات قیمت مدل X200 را در اختیار ندارم.")).toBeTruthy();
+    const streamRequest = fetchMock.mock.calls.find(
+      ([url, options = {}]) => url.endsWith("/messages/") && options.method === "POST",
+    );
+    expect(streamRequest[1].headers.Accept).toBe("text/event-stream, application/json");
 
     await user.click(screen.getByRole("button", { name: "مشتری جدید" }));
     await user.click(screen.getByRole("button", { name: "شروع برای مشتری جدید" }));

@@ -157,6 +157,7 @@ class ChatApiTests(TestCase):
                 reverse("chat:conversation-messages", args=(conversation_id,)),
                 {"content": "ساعت کاری شما چیست؟"},
                 format="json",
+                HTTP_ACCEPT="text/event-stream, application/json",
             )
             events = read_sse_events(response)
 

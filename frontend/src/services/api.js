@@ -92,7 +92,7 @@ function parseEventBlock(block) {
 
 async function sendMessageStream(conversationId, content, handlers = {}, signal) {
   const headers = {
-    Accept: "text/event-stream",
+    Accept: "text/event-stream, application/json",
     "Content-Type": "application/json",
   };
   const csrfToken = getCookie("csrftoken");
