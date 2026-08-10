@@ -56,7 +56,11 @@ describe("Persian kiosk application", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "ورود اپراتور" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "ورود" })).toBeTruthy();
+    expect(screen.getByAltText("Megatite")).toBeTruthy();
+    expect(screen.queryByText("دروازه ورود کیوسک")).toBeNull();
+    expect(screen.queryByText("برای فعال‌سازی دستیار، وارد حساب کاربری کیوسک شوید.")).toBeNull();
+    expect(screen.queryByText("رمز عبور فقط برای ورود ارسال می‌شود و در مرورگر ذخیره نخواهد شد.")).toBeNull();
     expect(screen.getByLabelText("نام کاربری").getAttribute("dir")).toBe("ltr");
     expect(screen.queryByText("شروع گفتگو")).toBeNull();
   });
@@ -109,7 +113,7 @@ describe("Persian kiosk application", () => {
     }));
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "ورود اپراتور" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "ورود" })).toBeTruthy();
     expect(screen.queryByText(/برای شروع، نام و نام خانوادگی‌تان را وارد کنید/)).toBeNull();
   });
 
