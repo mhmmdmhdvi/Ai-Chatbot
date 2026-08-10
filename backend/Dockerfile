@@ -30,7 +30,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     done
 
 COPY . /app
-RUN chown -R app:app /app
+RUN mkdir -p /app/data/documents \
+    && chown -R app:app /app
 
 USER app
 

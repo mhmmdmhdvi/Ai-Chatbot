@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+import re
 
 from django.conf import settings
+from django.db.models import Q
 from pgvector.django import CosineDistance
 
 from .embeddings import EmbeddingError, create_embeddings
@@ -10,6 +12,21 @@ from .normalization import normalize_persian_text
 
 class KnowledgeRetrievalError(RuntimeError):
     pass
+
+
+PRODUCT_CODES = frozenset({"s", "c", "g", "t", "sf", "sp", "lt", "hc", "ct", "pigment"})
+PERSIAN_PRODUCT_CODE_ALIASES = (
+    ("اس اف", "sf"),
+    ("اس پی", "sp"),
+    ("ال تی", "lt"),
+    ("اچ سی", "hc"),
+    ("سی تی", "ct"),
+    ("پیگمنت", "pigment"),
+    ("اس", "s"),
+    ("سی", "c"),
+    ("جی", "g"),
+    ("تی", "t"),
+)
 
 
 @dataclass(frozen=True)
@@ -36,6 +53,34 @@ def has_active_knowledge():
     return _active_chunks().exists()
 
 
+def extract_product_codes(query):
+    normalized = normalize_persian_text(query).casefold()
+    ascii_tokens = set(re.findall(r"[a-z0-9]+", normalized))
+    codes = PRODUCT_CODES.intersection(ascii_tokens)
+
+    if "مگاتایت" in normalized or "megatite" in normalized:
+        padded = f" {normalized} "
+        for phrase, code in PERSIAN_PRODUCT_CODE_ALIASES:
+            if re.search(rf"(?<!\S){re.escape(phrase)}(?!\S)", padded):
+                codes = codes | {code}
+                break
+    return frozenset(codes)
+
+
+def _product_code_filter(product_codes):
+    condition = Q()
+    for code in product_codes:
+        token_pattern = rf"(^|[^a-z0-9]){re.escape(code)}([^a-z0-9]|$)"
+        condition |= Q(version__document__title__iregex=token_pattern)
+        condition |= Q(version__original_filename__iregex=token_pattern)
+    return condition
+
+
+def _document_product_codes(chunk):
+    label = f"{chunk.version.document.title} {chunk.version.original_filename}".casefold()
+    return PRODUCT_CODES.intersection(re.findall(r"[a-z0-9]+", label))
+
+
 def retrieve_knowledge(query):
     normalized_query = normalize_persian_text(query)
     if not settings.KNOWLEDGE_RETRIEVAL_ENABLED or not normalized_query:
@@ -48,19 +93,35 @@ def retrieve_knowledge(query):
     except (EmbeddingError, IndexError) as exc:
         raise KnowledgeRetrievalError("Knowledge retrieval could not create the query vector.") from exc
 
-    candidates = (
+    annotated_chunks = (
         _active_chunks()
         .select_related("version", "version__document")
         .annotate(distance=CosineDistance("embedding", query_vector))
-        .order_by("distance", "id")[: settings.KNOWLEDGE_RETRIEVAL_TOP_K]
     )
+    candidate_limit = max(settings.KNOWLEDGE_RETRIEVAL_TOP_K * 4, 20)
+    candidates_by_id = {
+        chunk.id: chunk
+        for chunk in annotated_chunks.order_by("distance", "id")[:candidate_limit]
+    }
 
-    hits = []
-    context_characters = 0
-    for chunk in candidates:
+    product_codes = extract_product_codes(normalized_query)
+    if product_codes:
+        for chunk in annotated_chunks.filter(_product_code_filter(product_codes)):
+            candidates_by_id[chunk.id] = chunk
+
+    ranked_candidates = []
+    for chunk in candidates_by_id.values():
         similarity = 1.0 - float(chunk.distance)
         if similarity < settings.KNOWLEDGE_MIN_SIMILARITY:
             continue
+        code_matches = len(product_codes.intersection(_document_product_codes(chunk)))
+        ranking_score = similarity + (0.25 * code_matches)
+        ranked_candidates.append((ranking_score, similarity, chunk))
+    ranked_candidates.sort(key=lambda item: (-item[0], -item[1], item[2].id))
+
+    hits = []
+    context_characters = 0
+    for _, similarity, chunk in ranked_candidates[: settings.KNOWLEDGE_RETRIEVAL_TOP_K]:
         if hits and context_characters + len(chunk.content) > settings.KNOWLEDGE_MAX_CONTEXT_CHARACTERS:
             break
         hits.append(
