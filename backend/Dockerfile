@@ -2,14 +2,25 @@ FROM python:3.13-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_RETRIES=10 \
+    PIP_RESUME_RETRIES=10
 
 WORKDIR /app
 
 RUN addgroup --system app && adduser --system --ingroup app app
 
 COPY requirements/base.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    attempt=1; \
+    while [ "$attempt" -le 3 ]; do \
+        pip install --requirement /tmp/requirements.txt && break; \
+        if [ "$attempt" -eq 3 ]; then exit 1; fi; \
+        echo "pip install failed; retrying ($attempt/3)..." >&2; \
+        attempt=$((attempt + 1)); \
+        sleep 5; \
+    done
 
 COPY . /app
 RUN chown -R app:app /app
