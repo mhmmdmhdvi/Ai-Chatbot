@@ -61,17 +61,17 @@ function MessageBubble({ message }) {
 
 function IntakeScene({ busy, customerName, error, inputRef, intakeStep, intakeValue, onChange, onSubmit, online }) {
   const collectingPhone = intakeStep === "phone";
-  const promptTitle = collectingPhone ? `ممنون ${firstName(customerName)}.` : "سلام، خوش آمدید 👋";
+  const promptTitle = collectingPhone ? `خیلی ممنون، ${firstName(customerName)}!` : "سلام، خوش اومدید 👋";
   const promptText = collectingPhone
-    ? "حالا شماره موبایل‌تان را وارد کنید."
-    : "برای شروع، نام و نام خانوادگی‌تان را وارد کنید.";
-  const inputLabel = collectingPhone ? "شماره همراه" : "نام و نام خانوادگی";
+    ? "حالا لطفاً شماره موبایلتون رو وارد کنید."
+    : "لطفاً اسمتون رو وارد کنید تا با هم شروع کنیم.";
+  const inputLabel = collectingPhone ? "شماره موبایل" : "نام";
   const submitLabel = collectingPhone ? "شروع گفتگو" : "ادامه";
   const placeholder = !online
     ? "اتصال شبکه برقرار نیست"
     : collectingPhone
       ? "مثلاً ۰۹۱۲۱۲۳۴۵۶۷"
-      : "نام و نام خانوادگی";
+      : "مثلاً سارا";
 
   return (
     <main className="intake-stage mx-auto grid min-h-0 w-full max-w-6xl flex-1 place-items-center overflow-y-auto p-4 sm:p-8">
@@ -84,45 +84,46 @@ function IntakeScene({ busy, customerName, error, inputRef, intakeStep, intakeVa
         />
 
         <div className="intake-thought-card" key={intakeStep} aria-live="polite">
-          <span className="intake-step-label">مرحله {collectingPhone ? "۲" : "۱"} از ۲</span>
-          <h1 className="mt-3 text-xl font-black leading-8 text-slate-900 sm:text-2xl">{promptTitle}</h1>
-          <p className="mt-1.5 text-sm leading-7 text-slate-600 sm:text-base">{promptText}</p>
+          <div className="intake-card-content">
+            <h1 className="text-xl font-black leading-8 text-slate-900 sm:text-2xl">{promptTitle}</h1>
+            <p className="mt-1.5 text-sm leading-7 text-slate-600 sm:text-base">{promptText}</p>
 
-          {error && (
-            <div className="mt-4 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700" role="alert">
-              <Icon name="warning" size={18} className="shrink-0" />
-              <span>{error}</span>
+            {error && (
+              <div className="mt-4 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700" role="alert">
+                <Icon name="warning" size={18} className="shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form className="intake-input-shell mt-5 flex items-center gap-2 rounded-[1.35rem] bg-white p-2" onSubmit={onSubmit}>
+              <input
+                aria-label={inputLabel}
+                autoComplete="off"
+                autoFocus
+                className="min-h-14 min-w-0 flex-1 bg-transparent px-3 py-3 text-base outline-none placeholder:text-slate-400"
+                dir={collectingPhone ? "ltr" : "rtl"}
+                disabled={busy || !online}
+                inputMode={collectingPhone ? "tel" : "text"}
+                maxLength={collectingPhone ? 30 : 100}
+                onChange={(event) => onChange(event.target.value)}
+                placeholder={placeholder}
+                ref={inputRef}
+                value={intakeValue}
+              />
+              <button
+                aria-label={submitLabel}
+                className="send-button-3d grid h-14 w-14 shrink-0 place-items-center rounded-[1.1rem] text-white transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={busy || !online || !intakeValue.trim()}
+                type="submit"
+              >
+                {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="send" size={22} />}
+              </button>
+            </form>
+
+            <div className="mt-4 flex items-center gap-2" aria-hidden="true">
+              <span className="intake-progress-dot is-active" />
+              <span className={`intake-progress-dot ${collectingPhone ? "is-active" : ""}`} />
             </div>
-          )}
-
-          <form className="intake-input-shell mt-5 flex items-center gap-2 rounded-[1.35rem] bg-white p-2" onSubmit={onSubmit}>
-            <input
-              aria-label={inputLabel}
-              autoComplete="off"
-              autoFocus
-              className="min-h-14 min-w-0 flex-1 bg-transparent px-3 py-3 text-base outline-none placeholder:text-slate-400"
-              dir={collectingPhone ? "ltr" : "rtl"}
-              disabled={busy || !online}
-              inputMode={collectingPhone ? "tel" : "text"}
-              maxLength={collectingPhone ? 30 : 100}
-              onChange={(event) => onChange(event.target.value)}
-              placeholder={placeholder}
-              ref={inputRef}
-              value={intakeValue}
-            />
-            <button
-              aria-label={submitLabel}
-              className="send-button-3d grid h-14 w-14 shrink-0 place-items-center rounded-[1.1rem] text-white transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={busy || !online || !intakeValue.trim()}
-              type="submit"
-            >
-              {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="send" size={22} />}
-            </button>
-          </form>
-
-          <div className="mt-4 flex items-center gap-2" aria-hidden="true">
-            <span className="intake-progress-dot is-active" />
-            <span className={`intake-progress-dot ${collectingPhone ? "is-active" : ""}`} />
           </div>
         </div>
       </section>
@@ -186,7 +187,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
       {
         id: `conversation-${conversation.id}-welcome`,
         role: "assistant",
-        content: `خیلی خوب، آماده‌ام ${firstName(conversation.customer.name)}.\nچه سؤالی دارید؟`,
+        content: `عالیه ${firstName(conversation.customer.name)}! من آماده‌ام 😊\nچه سؤالی دارید؟`,
         created_at: conversation.started_at,
         local: true,
       },
