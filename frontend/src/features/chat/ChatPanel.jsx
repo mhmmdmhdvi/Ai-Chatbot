@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import assistantAvatar from "../../assets/assistant-avatar.webp";
 import customerAvatar from "../../assets/customer-avatar.webp";
 import customerGuideAvatar from "../../assets/customer-guide-avatar.webp";
 import Dialog from "../../components/Dialog";
@@ -9,13 +8,8 @@ import useIdleTimeout from "../../hooks/useIdleTimeout";
 import { ApiError, api } from "../../services/api";
 
 
-export const IDLE_INACTIVITY_MS = 30 * 1000;
-export const IDLE_WARNING_MS = 10 * 1000;
-
-
-function firstName(name) {
-  return name.trim().split(/\s+/)[0];
-}
+export const IDLE_INACTIVITY_MS = 45 * 1000;
+export const IDLE_WARNING_MS = 15 * 1000;
 
 
 function MessageBubble({ message }) {
@@ -31,7 +25,7 @@ function MessageBubble({ message }) {
           alt=""
           aria-hidden="true"
           className="assistant-avatar h-[4.5rem] w-[4.5rem] shrink-0 object-contain object-bottom sm:h-20 sm:w-20"
-          src={assistantAvatar}
+          src={customerGuideAvatar}
         />
       )}
       <div
@@ -69,20 +63,7 @@ function MessageBubble({ message }) {
 }
 
 
-function IntakeScene({ busy, customerName, error, inputRef, intakeStep, intakeValue, onChange, onSubmit, online }) {
-  const collectingPhone = intakeStep === "phone";
-  const promptTitle = collectingPhone ? `خیلی ممنون، ${firstName(customerName)}!` : "سلام، خوش اومدید 👋";
-  const promptText = collectingPhone
-    ? "حالا لطفاً شماره موبایلتون رو وارد کنید."
-    : "لطفاً اسمتون رو وارد کنید تا با هم شروع کنیم.";
-  const inputLabel = collectingPhone ? "شماره موبایل" : "نام";
-  const submitLabel = collectingPhone ? "شروع گفتگو" : "ادامه";
-  const placeholder = !online
-    ? "اتصال شبکه برقرار نیست"
-    : collectingPhone
-      ? "مثلاً ۰۹۱۲۱۲۳۴۵۶۷"
-      : "مثلاً سارا";
-
+function IntakeScene({ busy, error, onStart, online }) {
   return (
     <main className="intake-stage mx-auto grid min-h-0 w-full max-w-6xl flex-1 place-items-center overflow-y-auto p-4 sm:p-8">
       <section className="intake-popover" aria-label="شروع گفتگوی مشتری">
@@ -93,10 +74,10 @@ function IntakeScene({ busy, customerName, error, inputRef, intakeStep, intakeVa
           src={customerGuideAvatar}
         />
 
-        <div className="intake-thought-card" key={intakeStep} aria-live="polite">
-          <div className="intake-card-content">
-            <h1 className="text-xl font-black leading-8 text-slate-900 sm:text-2xl">{promptTitle}</h1>
-            <p className="mt-1.5 text-sm leading-7 text-slate-600 sm:text-base">{promptText}</p>
+        <div className="intake-thought-card" aria-live="polite">
+          <div className="intake-card-content text-center sm:text-right">
+            <h1 className="text-xl font-black leading-9 text-slate-900 sm:text-2xl">سلام، من مشاور هوشمند مگاتایت هستم.</h1>
+            <p className="mt-2 text-base font-bold leading-8 text-slate-600 sm:text-lg">بریم باهم گپ بزنیم؟</p>
 
             {error && (
               <div className="mt-4 flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-700" role="alert">
@@ -105,35 +86,17 @@ function IntakeScene({ busy, customerName, error, inputRef, intakeStep, intakeVa
               </div>
             )}
 
-            <form className="intake-input-shell mt-5 flex items-center gap-2 rounded-[1.35rem] bg-white p-2" onSubmit={onSubmit}>
-              <input
-                aria-label={inputLabel}
-                autoComplete="off"
-                autoFocus
-                className="min-h-14 min-w-0 flex-1 bg-transparent px-3 py-3 text-base outline-none placeholder:text-slate-400"
-                dir={collectingPhone ? "ltr" : "rtl"}
-                disabled={busy || !online}
-                inputMode={collectingPhone ? "tel" : "text"}
-                maxLength={collectingPhone ? 30 : 100}
-                onChange={(event) => onChange(event.target.value)}
-                placeholder={placeholder}
-                ref={inputRef}
-                value={intakeValue}
-              />
-              <button
-                aria-label={submitLabel}
-                className="send-button-3d grid h-14 w-14 shrink-0 place-items-center rounded-[1.1rem] text-white transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-40"
-                disabled={busy || !online || !intakeValue.trim()}
-                type="submit"
-              >
-                {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="send" size={22} />}
-              </button>
-            </form>
+            <button
+              className="start-chat-button-3d touch-button mx-auto mt-6 inline-flex min-h-16 min-w-44 items-center justify-center gap-3 rounded-[1.35rem] px-8 text-lg font-black text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-cyan-300/30 disabled:cursor-not-allowed disabled:opacity-45 sm:mx-0"
+              disabled={busy || !online}
+              onClick={onStart}
+              type="button"
+            >
+              {busy ? <span className="spinner" aria-hidden="true" /> : <Icon name="send" size={22} />}
+              <span>شروع</span>
+            </button>
 
-            <div className="mt-4 flex items-center gap-2" aria-hidden="true">
-              <span className="intake-progress-dot is-active" />
-              <span className={`intake-progress-dot ${collectingPhone ? "is-active" : ""}`} />
-            </div>
+            {!online && <p className="mt-4 text-sm font-bold text-rose-600" role="status">اتصال شبکه برقرار نیست.</p>}
           </div>
         </div>
       </section>
@@ -143,9 +106,6 @@ function IntakeScene({ busy, customerName, error, inputRef, intakeStep, intakeVa
 
 
 export default function ChatPanel({ conversation, onConversationChange, onNewCustomer, onReset, onSessionExpired, online }) {
-  const [intakeStep, setIntakeStep] = useState(() => (conversation ? "complete" : "name"));
-  const [intakeValue, setIntakeValue] = useState("");
-  const [customerName, setCustomerName] = useState(() => conversation?.customer?.name || "");
   const [content, setContent] = useState("");
   const [pendingMessages, setPendingMessages] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -158,9 +118,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   const resetLocalFlow = useCallback(() => {
     streamControllerRef.current?.abort();
     streamControllerRef.current = null;
-    setIntakeStep("name");
-    setIntakeValue("");
-    setCustomerName("");
     setContent("");
     setPendingMessages([]);
     setError("");
@@ -184,7 +141,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   }, [conversation?.id, onReset, resetLocalFlow]);
 
   const { warningOpen, secondsLeft, stayActive } = useIdleTimeout({
-    enabled: true,
+    enabled: Boolean(conversation),
     idleMs: IDLE_INACTIVITY_MS,
     warningMs: IDLE_WARNING_MS,
     onTimeout: handleIdleTimeout,
@@ -197,7 +154,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
       {
         id: `conversation-${conversation.id}-welcome`,
         role: "assistant",
-        content: `عالیه ${firstName(conversation.customer.name)}! من آماده‌ام 😊\nچه سؤالی دارید؟`,
+        content: "خیلی خوب، من آماده‌ام 😊\nچه سؤالی دارید؟",
         created_at: conversation.started_at,
         local: true,
       },
@@ -212,37 +169,22 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
 
   useEffect(() => {
     inputRef.current?.focus();
-  }, [conversation?.id, intakeStep]);
+  }, [conversation?.id]);
 
-  const submitIntake = async (event) => {
-    event.preventDefault();
-    const value = intakeValue.trim();
-    if (!value || busy) return;
+  const startConversation = async () => {
+    if (busy || !online) return;
 
     setError("");
-
-    if (intakeStep !== "phone") {
-      setCustomerName(value);
-      setIntakeValue("");
-      setIntakeStep("phone");
-      return;
-    }
-
     setBusy(true);
     try {
-      const newConversation = await api.startSession({
-        name: customerName,
-        phone_number: value,
-      });
-      setIntakeValue("");
-      setIntakeStep("complete");
+      const newConversation = await api.startSession({});
       onConversationChange(newConversation);
     } catch (requestError) {
       if (requestError instanceof ApiError && [401, 403].includes(requestError.status)) {
         onSessionExpired();
         return;
       }
-      setError(requestError.message || "شماره موبایل را بررسی و دوباره وارد کنید.");
+      setError(requestError.message || "شروع گفتگو انجام نشد. لطفاً دوباره تلاش کنید.");
     } finally {
       setBusy(false);
     }
@@ -342,7 +284,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     }
   };
 
-  const customerIntakeStep = intakeStep === "phone" ? "phone" : "name";
   const composerDisabled = busy || !online;
   const composerPlaceholder = online ? "سؤالتان را بنویسید…" : "اتصال شبکه برقرار نیست";
 
@@ -351,13 +292,8 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
       {!conversation ? (
         <IntakeScene
           busy={busy}
-          customerName={customerName}
           error={error}
-          inputRef={inputRef}
-          intakeStep={customerIntakeStep}
-          intakeValue={intakeValue}
-          onChange={setIntakeValue}
-          onSubmit={submitIntake}
+          onStart={startConversation}
           online={online}
         />
       ) : (

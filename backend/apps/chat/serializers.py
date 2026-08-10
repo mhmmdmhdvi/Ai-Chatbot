@@ -29,8 +29,8 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 
 class CustomerSessionSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=100, trim_whitespace=True)
-    phone_number = serializers.CharField(max_length=30, trim_whitespace=True)
+    name = serializers.CharField(max_length=100, trim_whitespace=True, required=False, allow_blank=True)
+    phone_number = serializers.CharField(max_length=30, trim_whitespace=True, required=False, allow_blank=True)
     kiosk_identifier = serializers.CharField(
         max_length=100,
         trim_whitespace=True,
@@ -38,13 +38,17 @@ class CustomerSessionSerializer(serializers.Serializer):
         allow_blank=True,
     )
 
-    def validate_name(self, value):
-        if not value:
-            raise serializers.ValidationError("نام مشتری را وارد کنید.")
-        return value
-
     def validate_phone_number(self, value):
+        if not value:
+            return value
         return normalize_iranian_phone(value)
+
+    def validate(self, attrs):
+        name = attrs.get("name", "")
+        phone_number = attrs.get("phone_number", "")
+        if bool(name) != bool(phone_number):
+            raise serializers.ValidationError("نام و شماره تلفن باید با هم وارد شوند.")
+        return attrs
 
 
 class MessageSerializer(serializers.ModelSerializer):

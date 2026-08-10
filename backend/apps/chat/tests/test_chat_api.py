@@ -88,6 +88,24 @@ class ChatApiTests(TestCase):
         )
         self.assertIn(response.status_code, (401, 403))
 
+    def test_anonymous_session_starts_without_creating_fake_customer_data(self):
+        response = self.client.post(reverse("chat:session-create"), {}, format="json")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertIsNone(response.data["customer"])
+        self.assertEqual(Customer.objects.count(), 0)
+        self.assertIsNone(Conversation.objects.get(id=response.data["id"]).customer)
+
+    def test_partial_customer_details_are_rejected(self):
+        response = self.client.post(
+            reverse("chat:session-create"),
+            {"name": "محمد"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Conversation.objects.count(), 0)
+
     def test_new_session_normalizes_persian_phone_digits(self):
         response = self.create_session(phone_number="۰۹۱۲۱۲۳۴۵۶۷")
 

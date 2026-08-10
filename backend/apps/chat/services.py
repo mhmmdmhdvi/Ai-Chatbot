@@ -7,7 +7,7 @@ ACTIVE_CONVERSATION_SESSION_KEY = "active_conversation_id"
 
 
 @transaction.atomic
-def start_customer_session(*, request, name, phone_number, kiosk_identifier=""):
+def start_customer_session(*, request, name="", phone_number="", kiosk_identifier=""):
     active_id = request.session.get(ACTIVE_CONVERSATION_SESSION_KEY)
     if active_id:
         previous = Conversation.objects.filter(
@@ -18,10 +18,12 @@ def start_customer_session(*, request, name, phone_number, kiosk_identifier=""):
         if previous:
             previous.close()
 
-    customer, _ = Customer.objects.update_or_create(
-        phone_number=phone_number,
-        defaults={"name": name},
-    )
+    customer = None
+    if name and phone_number:
+        customer, _ = Customer.objects.update_or_create(
+            phone_number=phone_number,
+            defaults={"name": name},
+        )
     conversation = Conversation.objects.create(
         customer=customer,
         created_by=request.user,

@@ -33,6 +33,8 @@ class Conversation(models.Model):
         on_delete=models.PROTECT,
         related_name="conversations",
         verbose_name="مشتری",
+        blank=True,
+        null=True,
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -62,7 +64,8 @@ class Conversation(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.customer.name} — {self.started_at:%Y-%m-%d %H:%M}"
+        customer_name = self.customer.name if self.customer else "مهمان"
+        return f"{customer_name} — {self.started_at:%Y-%m-%d %H:%M}"
 
     def close(self):
         if self.status == self.Status.ACTIVE:
