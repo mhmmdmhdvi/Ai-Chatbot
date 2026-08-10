@@ -10,9 +10,9 @@ AI calls remain intentionally disabled with `AI_PROVIDER=disabled`. The provider
 
 The active customer is cleared after three minutes without interaction, with a 30-second warning. This closes only the customer conversation; the kiosk account remains logged in. The timeout can be adjusted after testing on the physical touchscreen stand.
 
-## Provider availability for Tehran
+## Provider location and activation
 
-The kiosk is intended for Tehran. As of 2026-08-10, Iran is not listed on OpenAI's official API supported-countries page, which warns that accessing or offering access outside listed countries may lead to account suspension. Do not change `AI_PROVIDER` to `openai` or route around regional restrictions for this deployment. Select a provider that officially permits serving customers in Iran, or use an approved local model, before production activation.
+The development workstation is in Tehran, so local external AI calls remain disabled. The owner has clarified that both the production server and customer kiosk will operate outside Iran in OpenAI-supported countries. Enable `AI_PROVIDER=openai` only in that supported production environment, and do not use the server as a location workaround for local unsupported access.
 
 Official reference: https://help.openai.com/en/articles/5347006-openai-api-supported-countries-and-territories
 
@@ -82,6 +82,10 @@ Safe configuration placeholders are documented in `.env.example`. Provider secre
 - Raw provider errors, prompts, customer phone numbers, and secrets are not written to the AI usage log.
 
 PDF/document ingestion and grounded retrieval are Phase 5 and are not connected yet.
+
+## Production deployment
+
+The version-controlled Ubuntu/Docker/Nginx deployment flow, including trusted HTTPS for temporary IP staging and automated certificate renewal, is documented in [`docs/deployment.md`](docs/deployment.md). A permanent domain, backup destination, and restore test are still required before customer launch.
 
 ## Run checks
 

@@ -105,7 +105,7 @@ The application login protects access to the website and paid AI API. It is sepa
 - [ ] Confirm Docker Desktop licensing is acceptable for the company.
 - [ ] Provide an eligible AI provider account and API key when AI integration begins.
 - [ ] Provide representative company documents.
-- [ ] Later provide the production server, domain, and deployment access.
+- [x] Provide the production Ubuntu server and deployment access; permanent domain remains pending.
 
 ### Project dependencies handled in the repository
 
@@ -132,9 +132,9 @@ The official OpenAI supported-countries page currently does not list Iran and wa
 https://help.openai.com/en/articles/5347006-openai-api-supported-countries-and-territories
 
 - [ ] Confirm where the company is legally operating.
-- [x] Confirm where the kiosk customers will use the service: Tehran, Iran.
-- [ ] Confirm where the production server will be hosted.
-- [x] Confirm provider availability: OpenAI does not officially support offering API access to kiosk users in Tehran as of 2026-08-10.
+- [x] Confirm kiosk location: the owner states that customer use will be outside Iran in an OpenAI-supported country.
+- [x] Confirm server location: the owner states that production hosting is in an OpenAI-supported country.
+- [x] Confirm provider availability for the stated production server and kiosk locations before activation.
 - [x] Do not design or deploy a VPN/location workaround.
 - [ ] Select a compliant alternative provider if OpenAI is unavailable.
 
@@ -683,7 +683,7 @@ Estimated time: **3–5 working days**
 
 Generate and stream natural answers through a replaceable server-side AI provider.
 
-Implementation status on 2026-08-10: the provider-neutral streaming path is complete and mock-tested. The OpenAI adapter is installed but remains disabled, and no live OpenAI request was made, because the Tehran deployment is outside OpenAI's current supported-country list. Selecting a compliant production provider remains open.
+Implementation status on 2026-08-10: the provider-neutral streaming path is complete and mock-tested. OpenAI remains disabled on the Tehran development machine. The owner later clarified that the production server and customer kiosk will both be in supported countries, so the existing adapter may be enabled only in that production environment.
 
 ### Why
 
@@ -692,8 +692,8 @@ Streaming improves perceived latency, while a provider interface reduces vendor 
 ### Tasks
 
 - [x] Implement the `AIProvider` interface.
-- [ ] Add the approved provider implementation.
-- [x] Add a disabled-by-default OpenAI adapter for future eligible deployments.
+- [x] Add the approved production provider implementation.
+- [x] Keep the OpenAI adapter disabled locally and activation-controlled by production environment settings.
 - [x] Add timeout, bounded retry, cancellation, and error translation logic.
 - [x] Stream response events through Django and Nginx.
 - [x] Save the final assistant message after streaming.
@@ -1094,11 +1094,11 @@ Production contains customer data and cannot be treated as disposable developmen
 
 ### Tasks
 
-- [ ] Prepare and update Ubuntu Server 24.04 LTS.
-- [ ] Create a restricted deployment user.
-- [ ] Configure SSH keys, disable unsafe SSH access, and configure UFW.
-- [ ] Install Docker Engine and Docker Compose plugin.
-- [ ] Create `/srv/ai-assistant/` production directories.
+- [x] Prepare and update Ubuntu Server 26.04 LTS.
+- [x] Create a restricted deployment user.
+- [x] Configure SSH keys, disable unsafe SSH access, and configure UFW.
+- [x] Install Docker Engine and Docker Compose plugin.
+- [x] Create `/opt/ai-chatbot/` and clone the staging branch.
 - [ ] Configure production secrets and permissions.
 - [ ] Create persistent PostgreSQL and document storage.
 - [ ] Configure Nginx and HTTPS certificates.
@@ -1121,11 +1121,11 @@ Production contains customer data and cannot be treated as disposable developmen
 
 ### Dependencies
 
-- Ubuntu Server 24.04 LTS
+- Ubuntu Server 26.04 LTS
 - Docker Engine
 - Docker Compose plugin
-- Domain and DNS access
-- TLS certificate solution
+- Public IP for staging; permanent domain and DNS access before customer launch
+- Automated TLS certificate solution
 - Encrypted remote backup destination
 
 ### Database changes

@@ -33,7 +33,7 @@ services:
     volumes:
       - documents_data:/app/data/documents
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/', timeout=3)"]
+      test: ["CMD", "python", "-c", "import urllib.request; request = urllib.request.Request('http://127.0.0.1:8000/api/v1/health/', headers={'Host': 'backend', 'X-Forwarded-Proto': 'https'}); urllib.request.urlopen(request, timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 10

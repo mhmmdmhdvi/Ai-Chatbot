@@ -20,4 +20,7 @@ FROM base AS development
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
 
 FROM base AS production
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "60"]
+RUN DJANGO_SECRET_KEY=build-only-static-key-not-used-at-runtime \
+    DJANGO_DEBUG=false \
+    python manage.py collectstatic --noinput
+CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "90"]
