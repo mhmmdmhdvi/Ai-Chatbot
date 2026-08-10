@@ -8,6 +8,8 @@ from rest_framework.test import APIClient
 
 from apps.chat.ai import AICompletion, AIProviderError, AIStreamEvent
 from apps.chat.models import AIResponseLog, Conversation, Customer, Message
+from apps.knowledge.models import Document, DocumentChunk, DocumentVersion, MessageSource
+from apps.knowledge.retrieval import RetrievalHit
 
 
 def read_sse_events(response):
@@ -197,6 +199,59 @@ class ChatApiTests(TestCase):
         self.assertEqual(response_log.output_tokens, 10)
         self.assertEqual(response_log.total_tokens, 30)
         self.assertEqual(response_log.provider_response_id, "response-test-1")
+
+    @override_settings(AI_PROVIDER="openai", OPENAI_API_KEY="test-key")
+    def test_grounded_ai_response_saves_answer_sources(self):
+        conversation_id = self.create_session().data["id"]
+        provider = SuccessfulAIProvider()
+        document = Document.objects.create(title="Megatite S", source_key="megatite s")
+        version = DocumentVersion.objects.create(
+            document=document,
+            version_number=1,
+            file="knowledge/test.pdf",
+            original_filename="Megatite S.pdf",
+            sha256="c" * 64,
+            status=DocumentVersion.Status.READY,
+            is_active=True,
+            embedding_model="text-embedding-3-large",
+            embedding_dimensions=1024,
+        )
+        chunk = DocumentChunk.objects.create(
+            version=version,
+            page_number=2,
+            chunk_index=0,
+            content="متن مرجع مگاتایت اس",
+            content_hash="d" * 64,
+            character_count=22,
+        )
+        hit = RetrievalHit(
+            chunk_id=chunk.id,
+            document_title=document.title,
+            original_filename=version.original_filename,
+            page_number=2,
+            content=chunk.content,
+            similarity=0.91,
+            ocr_used=True,
+        )
+
+        with (
+            patch("apps.chat.streaming.get_ai_provider", return_value=provider),
+            patch("apps.chat.streaming.has_active_knowledge", return_value=True),
+            patch("apps.chat.streaming.retrieve_knowledge", return_value=[hit]),
+        ):
+            response = self.client.post(
+                reverse("chat:conversation-messages", args=(conversation_id,)),
+                {"content": "مگاتایت اس چیست؟"},
+                format="json",
+            )
+            read_sse_events(response)
+
+        self.assertEqual(provider.messages[0]["role"], "developer")
+        self.assertIn("Megatite S.pdf", provider.messages[0]["content"])
+        source = MessageSource.objects.get()
+        self.assertEqual(source.chunk, chunk)
+        self.assertEqual(source.rank, 1)
+        self.assertAlmostEqual(source.similarity, 0.91)
 
     @override_settings(AI_PROVIDER="openai", OPENAI_API_KEY="test-key")
     def test_partial_ai_response_is_not_saved_when_stream_fails(self):

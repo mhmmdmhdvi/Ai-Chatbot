@@ -4,9 +4,9 @@
 
 This file is the working implementation plan for the AI Customer Assistant project. Keep it updated as decisions are made and phases are completed.
 
-Planning status: **Phase 3 application implemented — physical touchscreen validation remains**
+Planning status: **Phase 5/6 RAG implementation complete locally — document quality review and live indexing remain**
 
-AI provider integration remains deferred until provider eligibility and credentials are available. Non-AI application work can continue independently.
+The OpenAI adapter and live VPS connectivity test are complete. External AI calls remain disabled on the Tehran development machine; embeddings and production chat run only from the supported production environment described by the owner.
 
 ---
 
@@ -123,7 +123,7 @@ Current host environment verified on 2026-08-10:
 
 ---
 
-## Important Phase 0 blocker — AI provider eligibility
+## Important Phase 0 boundary — AI provider eligibility
 
 The intended operating country, customer location, server location, account eligibility, and provider terms must be confirmed before OpenAI becomes a production dependency.
 
@@ -712,7 +712,7 @@ Streaming improves perceived latency, while a provider interface reduces vendor 
 
 ### Dependencies
 
-- Official OpenAI SDK for the inactive adapter; an approved Tehran-compatible provider remains pending
+- Official OpenAI SDK, activated only in the owner-confirmed supported production environment
 - Django streaming response support
 
 ### Database changes
@@ -771,16 +771,27 @@ Document extraction and lifecycle quality determine the reliability of the later
 
 ### Tasks
 
-- [ ] Add document and document-version models.
-- [ ] Extract text from PDF, DOCX, and TXT.
-- [ ] Detect scanned/empty PDFs and report that OCR is required.
-- [ ] Normalize Persian and mixed Persian/English document text conservatively.
-- [ ] Chunk text while preserving document and page metadata.
-- [ ] Generate embeddings through the approved provider.
-- [ ] Save vectors in pgvector.
-- [ ] Detect duplicate content using checksums.
-- [ ] Support replace, deactivate, and rollback semantics.
-- [ ] Add controlled management commands for import/reindex.
+- [x] Add document and document-version models.
+- [x] Extract approved PDF documents.
+- [ ] Add DOCX/TXT extraction only when those formats are supplied and approved.
+- [x] Detect scanned/empty PDFs and run local Persian/English OCR when approved.
+- [x] Normalize Persian and mixed Persian/English document text conservatively.
+- [x] Chunk text while preserving document and page metadata.
+- [x] Generate embeddings through the approved provider.
+- [x] Save vectors in pgvector.
+- [x] Detect duplicate content using checksums.
+- [x] Support replace, deactivate, and rollback semantics.
+- [x] Add controlled management commands for import/reindex.
+
+### Current PDF audit — 2026-08-10
+
+- [x] Audited all 15 supplied PDFs without writing to the database or calling OpenAI.
+- [x] Confirmed all 15 PDFs are scanned/image-based and require OCR.
+- [x] Processed 58 pages into 58 candidate chunks and approximately 74,000 characters.
+- [x] Verified that narrative Persian text is suitable for general retrieval after normalization.
+- [ ] Obtain text-native originals or manually review/correct exact technical tables; OCR dropped digits in some numeric values.
+- [ ] Import and activate the reviewed set on the VPS.
+- [x] Mark OCR evidence as review-required so the model does not state unverified numbers as fact.
 
 ### Files/architecture
 
@@ -793,7 +804,7 @@ Document extraction and lifecycle quality determine the reliability of the later
 ### Dependencies
 
 - PDF text extraction library
-- DOCX extraction library
+- DOCX extraction library only if DOCX is later approved
 - pgvector integration
 - Approved embedding provider
 
@@ -831,8 +842,8 @@ No public upload endpoint in the first version. Use a controlled management comm
 ### Definition of Done
 
 - [ ] Approved files can be imported and searched.
-- [ ] Every chunk can be traced to a document version and location.
-- [ ] Replacing a document does not leave ambiguous active content.
+- [x] Every chunk can be traced to a document version and location.
+- [x] Replacing a document does not leave ambiguous active content.
 - [ ] Documents survive container recreation and are backed up.
 
 ---
@@ -852,15 +863,15 @@ A fluent answer is not useful if it invents company prices, policies, or warrant
 
 ### Tasks
 
-- [ ] Embed each customer question.
-- [ ] Retrieve a small number of relevant chunks.
-- [ ] Add configurable relevance thresholds.
-- [ ] Preserve relevant conversational follow-up context.
-- [ ] Limit retrieved context and older conversation history.
-- [ ] Instruct the model to use company evidence only.
-- [ ] Instruct the model to ignore instructions found inside documents.
-- [ ] Return a safe insufficient-information response when evidence is weak.
-- [ ] Save answer-to-source relationships.
+- [x] Embed each customer question.
+- [x] Retrieve a small number of relevant chunks.
+- [x] Add configurable relevance thresholds.
+- [x] Preserve relevant conversational follow-up context.
+- [x] Limit retrieved context and older conversation history.
+- [x] Instruct the model to use company evidence only.
+- [x] Instruct the model to ignore instructions found inside documents.
+- [x] Return a safe insufficient-information response when evidence is weak.
+- [x] Save answer-to-source relationships.
 - [ ] Optionally show source document names in the UI.
 - [ ] Evaluate vector-only retrieval.
 - [ ] Add limited lexical/hybrid retrieval only if evaluation shows it is needed.
@@ -914,7 +925,7 @@ The existing streaming endpoint gains grounded retrieval and sources.
 
 - [ ] The approved evaluation thresholds are met.
 - [ ] Unsupported critical questions reliably refuse in the evaluation set.
-- [ ] Answers can be traced to active document versions.
+- [x] Answers can be traced to active document versions.
 - [ ] Cost and latency remain within agreed limits.
 
 ---
@@ -1401,7 +1412,7 @@ Preferred production starting point for additional headroom:
 
 ## Next action
 
-1. Open the current application on the touchscreen stand and verify touch comfort, Persian typing, and the Windows on-screen keyboard.
-2. Before using real customer data, define consent text, retention duration, and administrator-access rules.
-3. Keep external AI calls disabled and select a provider that officially permits serving kiosk users in Tehran, or approve a local model.
-4. After selecting that provider, implement its adapter behind the completed Phase 4 interface, then begin Phase 5 document ingestion and grounded retrieval.
+1. Request text-native originals for the scanned PDFs, or manually approve corrected OCR text for exact technical tables.
+2. Push and deploy the reviewed Phase 5/6 code, apply migrations, and import the approved PDFs on the VPS with OCR and embeddings.
+3. Run a Persian evaluation set covering general questions, exact specifications, unknown questions, and prompt-injection attempts before customer use.
+4. Open the application on the touchscreen stand and verify touch comfort, Persian typing, and the Windows on-screen keyboard.

@@ -5,6 +5,14 @@ import time
 from django.db import transaction
 from django.utils import timezone
 
+from apps.knowledge.models import MessageSource
+from apps.knowledge.retrieval import (
+    KnowledgeRetrievalError,
+    build_grounding_context,
+    has_active_knowledge,
+    retrieve_knowledge,
+)
+
 from .ai import AIProviderError, build_conversation_context, get_ai_provider
 from .models import AIResponseLog, Message
 from .serializers import MessageSerializer
@@ -47,7 +55,16 @@ def stream_conversation_response(*, conversation, customer_message, response_log
         response_log.model = provider.model
         response_log.save(update_fields=("provider", "model"))
 
-        for event in provider.stream_response(build_conversation_context(conversation)):
+        knowledge_is_active = has_active_knowledge()
+        retrieval_hits = retrieve_knowledge(customer_message.content)
+        messages = build_conversation_context(conversation)
+        if knowledge_is_active:
+            messages.insert(
+                0,
+                {"role": "developer", "content": build_grounding_context(retrieval_hits)},
+            )
+
+        for event in provider.stream_response(messages):
             if event.type == "delta":
                 assistant_chunks.append(event.delta)
                 yield sse_event("delta", {"delta": event.delta})
@@ -71,6 +88,17 @@ def stream_conversation_response(*, conversation, customer_message, response_log
                     conversation=conversation,
                     role=Message.Role.ASSISTANT,
                     content=content,
+                )
+                MessageSource.objects.bulk_create(
+                    [
+                        MessageSource(
+                            message=assistant_message,
+                            chunk_id=hit.chunk_id,
+                            similarity=hit.similarity,
+                            rank=rank,
+                        )
+                        for rank, hit in enumerate(retrieval_hits, start=1)
+                    ]
                 )
                 response_log.assistant_message = assistant_message
                 response_log.status = AIResponseLog.Status.COMPLETED
@@ -125,6 +153,21 @@ def stream_conversation_response(*, conversation, customer_message, response_log
                 latency_ms=latency_ms,
             )
         raise
+    except KnowledgeRetrievalError:
+        latency_ms = round((time.monotonic() - started_at) * 1000)
+        fail_response_log(
+            response_log,
+            category="knowledge_retrieval",
+            latency_ms=latency_ms,
+        )
+        yield sse_event(
+            "error",
+            {
+                "detail": "بازیابی اطلاعات مگاتایت موقتاً ممکن نیست. لطفاً کمی بعد دوباره تلاش کنید.",
+                "retryable": True,
+                "ai_status": "error",
+            },
+        )
     except AIProviderError as exc:
         latency_ms = round((time.monotonic() - started_at) * 1000)
         fail_response_log(

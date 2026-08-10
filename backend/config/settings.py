@@ -34,6 +34,21 @@ def env_int(name, default, *, minimum=1, maximum=None):
     return value
 
 
+def env_float(name, default, *, minimum=0.0, maximum=None):
+    raw_value = os.getenv(name)
+    try:
+        value = float(raw_value) if raw_value is not None else default
+    except ValueError as exc:
+        raise ImproperlyConfigured(f"{name} must be a number.") from exc
+
+    if value < minimum or (maximum is not None and value > maximum):
+        range_description = f"at least {minimum}"
+        if maximum is not None:
+            range_description = f"between {minimum} and {maximum}"
+        raise ImproperlyConfigured(f"{name} must be {range_description}.")
+    return value
+
+
 DEBUG = env_bool("DJANGO_DEBUG", False)
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 
@@ -132,6 +147,7 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+MEDIA_ROOT = BASE_DIR / "data" / "documents"
 STORAGES = {
     "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
@@ -163,12 +179,42 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6-terra").strip()
 OPENAI_TIMEOUT_SECONDS = env_int("OPENAI_TIMEOUT_SECONDS", 30, minimum=5, maximum=120)
 OPENAI_MAX_OUTPUT_TOKENS = env_int("OPENAI_MAX_OUTPUT_TOKENS", 800, minimum=100, maximum=4000)
+OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-large").strip()
+OPENAI_EMBEDDING_DIMENSIONS = env_int(
+    "OPENAI_EMBEDDING_DIMENSIONS",
+    1024,
+    minimum=1024,
+    maximum=1024,
+)
 AI_CONTEXT_MESSAGE_LIMIT = env_int("AI_CONTEXT_MESSAGE_LIMIT", 16, minimum=2, maximum=50)
 AI_CONTEXT_CHARACTER_LIMIT = env_int(
     "AI_CONTEXT_CHARACTER_LIMIT",
     24_000,
     minimum=2_000,
     maximum=100_000,
+)
+KNOWLEDGE_RETRIEVAL_ENABLED = env_bool("KNOWLEDGE_RETRIEVAL_ENABLED", True)
+KNOWLEDGE_RETRIEVAL_TOP_K = env_int("KNOWLEDGE_RETRIEVAL_TOP_K", 6, minimum=1, maximum=12)
+KNOWLEDGE_MIN_SIMILARITY = env_float(
+    "KNOWLEDGE_MIN_SIMILARITY",
+    0.35,
+    minimum=0.0,
+    maximum=1.0,
+)
+KNOWLEDGE_MAX_CONTEXT_CHARACTERS = env_int(
+    "KNOWLEDGE_MAX_CONTEXT_CHARACTERS",
+    12_000,
+    minimum=1_000,
+    maximum=40_000,
+)
+KNOWLEDGE_EMBEDDING_BATCH_SIZE = env_int(
+    "KNOWLEDGE_EMBEDDING_BATCH_SIZE",
+    32,
+    minimum=1,
+    maximum=100,
+)
+KNOWLEDGE_MAX_FILE_BYTES = (
+    env_int("KNOWLEDGE_MAX_FILE_SIZE_MB", 50, minimum=1, maximum=500) * 1024 * 1024
 )
 
 REST_FRAMEWORK = {
