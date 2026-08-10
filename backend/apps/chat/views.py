@@ -1,10 +1,11 @@
-from django.http import Http404
+from django.conf import settings
+from django.http import Http404, StreamingHttpResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Message
+from .models import AIResponseLog, Message
 from .serializers import (
     ConversationSerializer,
     CreateMessageSerializer,
@@ -12,6 +13,7 @@ from .serializers import (
     MessageSerializer,
 )
 from .services import clear_active_conversation, get_active_conversation, start_customer_session
+from .streaming import stream_conversation_response
 
 
 class CustomerSessionView(APIView):
@@ -58,13 +60,24 @@ class ConversationMessagesView(APIView):
             content=serializer.validated_data["content"],
         )
         conversation.save(update_fields=("last_activity_at",))
-        return Response(
-            {
-                "message": MessageSerializer(message).data,
-                "ai_status": "disabled",
-            },
-            status=status.HTTP_201_CREATED,
+        response_log = AIResponseLog.objects.create(
+            conversation=conversation,
+            customer_message=message,
+            provider=(settings.AI_PROVIDER or "disabled")[:30],
+            model=settings.OPENAI_MODEL if settings.AI_PROVIDER == "openai" else "",
         )
+        response = StreamingHttpResponse(
+            stream_conversation_response(
+                conversation=conversation,
+                customer_message=message,
+                response_log=response_log,
+            ),
+            status=status.HTTP_201_CREATED,
+            content_type="text/event-stream; charset=utf-8",
+        )
+        response["Cache-Control"] = "no-cache, no-transform"
+        response["X-Accel-Buffering"] = "no"
+        return response
 
 
 class CloseConversationView(APIView):

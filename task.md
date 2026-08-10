@@ -111,7 +111,7 @@ The application login protects access to the website and paid AI API. It is sepa
 
 React, Tailwind, Django, Python packages, PostgreSQL, pgvector, Nginx, test tools, and other project dependencies will be declared in project files and installed inside Docker images. Do not install these globally for this project.
 
-Current host environment verified on 2026-08-09:
+Current host environment verified on 2026-08-10:
 
 - Node.js 24.18.0 installed.
 - npm 11.16.0 installed.
@@ -129,13 +129,13 @@ The intended operating country, customer location, server location, account elig
 
 The official OpenAI supported-countries page currently does not list Iran and warns that accessing or offering access outside listed territories can lead to account blocking or suspension:
 
-https://developers.openai.com/api/docs/supported-countries
+https://help.openai.com/en/articles/5347006-openai-api-supported-countries-and-territories
 
 - [ ] Confirm where the company is legally operating.
-- [ ] Confirm where the kiosk customers will use the service.
+- [x] Confirm where the kiosk customers will use the service: Tehran, Iran.
 - [ ] Confirm where the production server will be hosted.
-- [ ] Confirm that the intended AI provider officially supports this use.
-- [ ] Do not design or deploy a VPN/location workaround.
+- [x] Confirm provider availability: OpenAI does not officially support offering API access to kiosk users in Tehran as of 2026-08-10.
+- [x] Do not design or deploy a VPN/location workaround.
 - [ ] Select a compliant alternative provider if OpenAI is unavailable.
 
 The backend will use a small provider interface so the rest of the application is not permanently tied to one AI vendor.
@@ -683,32 +683,36 @@ Estimated time: **3–5 working days**
 
 Generate and stream natural answers through a replaceable server-side AI provider.
 
+Implementation status on 2026-08-10: the provider-neutral streaming path is complete and mock-tested. The OpenAI adapter is installed but remains disabled, and no live OpenAI request was made, because the Tehran deployment is outside OpenAI's current supported-country list. Selecting a compliant production provider remains open.
+
 ### Why
 
 Streaming improves perceived latency, while a provider interface reduces vendor and regional risk.
 
 ### Tasks
 
-- [ ] Implement the `AIProvider` interface.
+- [x] Implement the `AIProvider` interface.
 - [ ] Add the approved provider implementation.
-- [ ] Add timeout, retry, cancellation, and error translation logic.
-- [ ] Stream response events through Django and Nginx.
-- [ ] Save the final assistant message after streaming.
-- [ ] Record token usage, latency, provider, model, and request IDs.
-- [ ] Keep conversation context bounded.
-- [ ] Add friendly failure and retry behavior.
+- [x] Add a disabled-by-default OpenAI adapter for future eligible deployments.
+- [x] Add timeout, bounded retry, cancellation, and error translation logic.
+- [x] Stream response events through Django and Nginx.
+- [x] Save the final assistant message after streaming.
+- [x] Record token usage, latency, provider, model, and request IDs.
+- [x] Keep conversation context bounded.
+- [x] Add friendly failure and retry behavior.
 
 ### Files/architecture
 
-- `backend/services/ai/base.py`
-- `backend/services/ai/providers/`
-- `backend/services/ai/prompts.py`
-- `backend/services/ai/chat_service.py`
+- `backend/apps/chat/ai/base.py`
+- `backend/apps/chat/ai/openai_provider.py`
+- `backend/apps/chat/ai/prompts.py`
+- `backend/apps/chat/ai/service.py`
+- `backend/apps/chat/streaming.py`
 - Streaming endpoint/service tests
 
 ### Dependencies
 
-- Official SDK for the approved provider
+- Official OpenAI SDK for the inactive adapter; an approved Tehran-compatible provider remains pending
 - Django streaming response support
 
 ### Database changes
@@ -745,10 +749,10 @@ Upgrade the message endpoint to return a streamed response.
 
 ### Definition of Done
 
-- [ ] Responses stream from backend to browser.
-- [ ] Completed messages and usage are saved once.
-- [ ] Provider errors do not break the conversation UI.
-- [ ] No API key reaches frontend code or browser traffic.
+- [x] Responses stream from backend to browser.
+- [x] Completed messages and usage are saved once.
+- [x] Provider errors do not break the conversation UI.
+- [x] No API key reaches frontend code or browser traffic.
 
 ---
 
@@ -1399,5 +1403,5 @@ Preferred production starting point for additional headroom:
 
 1. Open the current application on the touchscreen stand and verify touch comfort, Persian typing, and the Windows on-screen keyboard.
 2. Before using real customer data, define consent text, retention duration, and administrator-access rules.
-3. Keep AI/provider work disabled until provider eligibility is confirmed and credentials are available.
-4. After that confirmation, begin Phase 4 without changing the completed login, customer, or conversation flow.
+3. Keep external AI calls disabled and select a provider that officially permits serving kiosk users in Tehran, or approve a local model.
+4. After selecting that provider, implement its adapter behind the completed Phase 4 interface, then begin Phase 5 document ingestion and grounded retrieval.

@@ -20,6 +20,17 @@ function emptyResponse(status = 204) {
 }
 
 
+function eventStreamResponse(events, status = 201) {
+  const body = events.map(({ event, data }) => (
+    `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+  )).join("");
+  return new Response(body, {
+    status,
+    headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+  });
+}
+
+
 const kioskUser = { id: 2, username: "kiosk", is_staff: false };
 
 
@@ -122,22 +133,38 @@ describe("Persian kiosk application", () => {
       status: "active",
       language: "fa",
       messages: [],
-      ai_status: "disabled",
+      ai_status: "ready",
     };
     const fetchMock = vi.fn(async (url, options = {}) => {
       if (url === "/api/v1/auth/me/") return jsonResponse(kioskUser);
       if (url === "/api/v1/sessions/current/") return emptyResponse();
       if (url === "/api/v1/sessions/" && options.method === "POST") return jsonResponse(conversation, 201);
       if (url.endsWith("/messages/") && options.method === "POST") {
-        return jsonResponse({
-          ai_status: "disabled",
-          message: {
-            id: "1f57ceac-38c8-41ee-a96e-a833988efdd8",
-            role: "customer",
-            content: "قیمت مدل X200 چقدر است؟",
-            created_at: "2026-08-09T12:00:00Z",
+        const customerMessage = {
+          id: "1f57ceac-38c8-41ee-a96e-a833988efdd8",
+          role: "customer",
+          content: "قیمت مدل X200 چقدر است؟",
+          created_at: "2026-08-09T12:00:00Z",
+        };
+        const assistantMessage = {
+          id: "74f237eb-e10d-46a2-b346-da99d20ef8a2",
+          role: "assistant",
+          content: "هنوز اطلاعات قیمت مدل X200 را در اختیار ندارم.",
+          created_at: "2026-08-09T12:00:01Z",
+        };
+        return eventStreamResponse([
+          { event: "customer", data: { message: customerMessage, ai_status: "thinking" } },
+          { event: "delta", data: { delta: "هنوز اطلاعات قیمت مدل X200 " } },
+          { event: "delta", data: { delta: "را در اختیار ندارم." } },
+          {
+            event: "completed",
+            data: {
+              customer_message: customerMessage,
+              assistant_message: assistantMessage,
+              ai_status: "completed",
+            },
           },
-        }, 201);
+        ]);
       }
       if (url.endsWith("/close/") && options.method === "POST") return emptyResponse();
       throw new Error(`Unexpected request: ${url}`);
@@ -161,6 +188,7 @@ describe("Persian kiosk application", () => {
 
     const message = await screen.findByText("قیمت مدل X200 چقدر است؟");
     expect(message.getAttribute("dir")).toBe("auto");
+    expect(await screen.findByText("هنوز اطلاعات قیمت مدل X200 را در اختیار ندارم.")).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "مشتری جدید" }));
     await user.click(screen.getByRole("button", { name: "شروع برای مشتری جدید" }));

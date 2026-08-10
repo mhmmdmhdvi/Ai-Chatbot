@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Conversation, Customer, Message
+from .models import AIResponseLog, Conversation, Customer, Message
 
 
 class ReadOnlyAdminMixin:
@@ -37,6 +37,27 @@ class MessageInline(admin.TabularInline):
         return False
 
 
+class AIResponseLogInline(admin.TabularInline):
+    model = AIResponseLog
+    extra = 0
+    can_delete = False
+    fields = (
+        "status",
+        "provider",
+        "model",
+        "input_tokens",
+        "output_tokens",
+        "latency_ms",
+        "error_category",
+        "created_at",
+    )
+    readonly_fields = fields
+    ordering = ("-created_at",)
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(Conversation)
 class ConversationAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
     list_display = ("id", "customer", "status", "created_by", "started_at", "last_activity_at")
@@ -44,7 +65,7 @@ class ConversationAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
     search_fields = ("customer__name", "customer__phone_number", "id")
     list_select_related = ("customer", "created_by")
     ordering = ("-started_at",)
-    inlines = (MessageInline,)
+    inlines = (MessageInline, AIResponseLogInline)
 
 
 @admin.register(Message)
@@ -52,5 +73,29 @@ class MessageAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
     list_display = ("id", "conversation", "role", "created_at")
     list_filter = ("role", "created_at")
     search_fields = ("content", "conversation__customer__name", "conversation__customer__phone_number")
+    list_select_related = ("conversation", "conversation__customer")
+    ordering = ("-created_at",)
+
+
+@admin.register(AIResponseLog)
+class AIResponseLogAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
+    list_display = (
+        "id",
+        "conversation",
+        "status",
+        "provider",
+        "model",
+        "input_tokens",
+        "output_tokens",
+        "latency_ms",
+        "created_at",
+    )
+    list_filter = ("status", "provider", "model", "created_at")
+    search_fields = (
+        "conversation__customer__name",
+        "conversation__customer__phone_number",
+        "provider_response_id",
+        "request_id",
+    )
     list_select_related = ("conversation", "conversation__customer")
     ordering = ("-created_at",)

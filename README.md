@@ -4,11 +4,17 @@ A Docker-first Persian touchscreen customer assistant built with React, Tailwind
 
 ## Current status
 
-Phase 3 application implementation is complete. The project now has the protected backend plus a responsive Persian RTL kiosk interface for operator login, customer intake, stored chat messages, operator logout, and manual or automatic customer reset.
+The Phase 4 streaming foundation is complete. The project has the protected backend plus a responsive Persian RTL kiosk interface for operator login, guided customer intake, streamed assistant messages, stored conversations, AI usage/error records in Django Admin, and manual or automatic customer reset.
 
-AI integration is intentionally disabled. No OpenAI package or API key is required at this stage, and the message API reports `ai_status: "disabled"`.
+AI calls remain intentionally disabled with `AI_PROVIDER=disabled`. The provider-neutral implementation and OpenAI adapter are tested with mocks, but the application does not send a live provider request in its current configuration.
 
 The active customer is cleared after three minutes without interaction, with a 30-second warning. This closes only the customer conversation; the kiosk account remains logged in. The timeout can be adjusted after testing on the physical touchscreen stand.
+
+## Provider availability for Tehran
+
+The kiosk is intended for Tehran. As of 2026-08-10, Iran is not listed on OpenAI's official API supported-countries page, which warns that accessing or offering access outside listed countries may lead to account suspension. Do not change `AI_PROVIDER` to `openai` or route around regional restrictions for this deployment. Select a provider that officially permits serving customers in Iran, or use an approved local model, before production activation.
+
+Official reference: https://help.openai.com/en/articles/5347006-openai-api-supported-countries-and-territories
 
 ## Prerequisites
 
@@ -49,7 +55,8 @@ Then sign in at http://localhost:8000/admin/ and create a separate kiosk user un
 - `POST /api/v1/auth/logout/` ends the kiosk login.
 - `POST /api/v1/sessions/` validates an Iranian phone number and starts a fresh customer conversation.
 - `GET /api/v1/sessions/current/` returns the active customer conversation.
-- `GET|POST /api/v1/conversations/{uuid}/messages/` reads or stores messages for only the active browser session.
+- `GET /api/v1/conversations/{uuid}/messages/` reads messages for only the active browser session.
+- `POST /api/v1/conversations/{uuid}/messages/` stores the customer message and returns an authenticated `text/event-stream` response with `customer`, `delta`, `completed`, or `error` events.
 - `POST /api/v1/conversations/{uuid}/close/` clears the customer session without logging out the kiosk.
 
 The browser must send the current `X-CSRFToken` value for every state-changing request. Django rotates that token after login.
@@ -58,11 +65,23 @@ The browser must send the current `X-CSRFToken` value for every state-changing r
 
 1. The operator signs in using the normal non-staff kiosk account.
 2. The customer enters a name and Iranian mobile number.
-3. The customer can submit messages; they are stored in PostgreSQL while AI is disabled.
+3. The customer can submit messages. Customer messages are always stored in PostgreSQL; a permitted and configured provider can then stream a Persian answer to the browser.
 4. **New customer** closes the conversation and immediately clears all customer details from the screen without logging out the kiosk.
 5. The inactivity timer performs the same privacy reset automatically.
 
 Passwords, customer details, and conversations are not stored in browser local storage.
+
+## AI configuration
+
+Safe configuration placeholders are documented in `.env.example`. Provider secrets belong only in the ignored root `.env`; never add them to React variables, source code, Git, screenshots, logs, or chat messages.
+
+- `AI_PROVIDER=disabled` keeps all external AI calls off.
+- `OPENAI_MODEL`, timeouts, output limits, and bounded context settings configure the inactive OpenAI adapter for a future eligible deployment.
+- A completed provider response is saved once as an assistant message.
+- Provider, model, token counts, latency, request identifiers, and safe error categories appear under **AI response logs** in Django Admin.
+- Raw provider errors, prompts, customer phone numbers, and secrets are not written to the AI usage log.
+
+PDF/document ingestion and grounded retrieval are Phase 5 and are not connected yet.
 
 ## Run checks
 

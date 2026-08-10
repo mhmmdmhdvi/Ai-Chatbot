@@ -1,4 +1,5 @@
 import phonenumbers
+from django.conf import settings
 from rest_framework import serializers
 
 from .models import Conversation, Customer, Message
@@ -84,4 +85,10 @@ class ConversationSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_ai_status(self, obj):
-        return "disabled"
+        if settings.AI_PROVIDER == "disabled":
+            return "disabled"
+        if settings.AI_PROVIDER not in {"openai"}:
+            return "misconfigured"
+        if settings.AI_PROVIDER == "openai" and not settings.OPENAI_API_KEY:
+            return "misconfigured"
+        return "ready"

@@ -19,6 +19,21 @@ def env_list(name, default=""):
     return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
 
 
+def env_int(name, default, *, minimum=1, maximum=None):
+    raw_value = os.getenv(name)
+    try:
+        value = int(raw_value) if raw_value is not None else default
+    except ValueError as exc:
+        raise ImproperlyConfigured(f"{name} must be an integer.") from exc
+
+    if value < minimum or (maximum is not None and value > maximum):
+        range_description = f"at least {minimum}"
+        if maximum is not None:
+            range_description = f"between {minimum} and {maximum}"
+        raise ImproperlyConfigured(f"{name} must be {range_description}.")
+    return value
+
+
 DEBUG = env_bool("DJANGO_DEBUG", False)
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
 
@@ -134,6 +149,19 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 X_FRAME_OPTIONS = "DENY"
 SECURE_CONTENT_TYPE_NOSNIFF = True
 DATA_UPLOAD_MAX_MEMORY_SIZE = 1_048_576
+
+AI_PROVIDER = os.getenv("AI_PROVIDER", "disabled").strip().lower()
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.6-terra").strip()
+OPENAI_TIMEOUT_SECONDS = env_int("OPENAI_TIMEOUT_SECONDS", 30, minimum=5, maximum=120)
+OPENAI_MAX_OUTPUT_TOKENS = env_int("OPENAI_MAX_OUTPUT_TOKENS", 800, minimum=100, maximum=4000)
+AI_CONTEXT_MESSAGE_LIMIT = env_int("AI_CONTEXT_MESSAGE_LIMIT", 16, minimum=2, maximum=50)
+AI_CONTEXT_CHARACTER_LIMIT = env_int(
+    "AI_CONTEXT_CHARACTER_LIMIT",
+    24_000,
+    minimum=2_000,
+    maximum=100_000,
+)
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

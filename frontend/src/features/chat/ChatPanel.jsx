@@ -39,7 +39,15 @@ function MessageBubble({ message }) {
             : "message-assistant max-w-[72%] rounded-[1.4rem] rounded-tl-md border border-slate-200/80 bg-white text-slate-800 sm:max-w-[74%]"
         }`}
       >
-        <p className="mixed-content whitespace-pre-wrap break-words text-[15px] leading-7 sm:text-base" dir="auto">{message.content}</p>
+        {message.streaming && !message.content ? (
+          <span className="flex h-7 items-center gap-1.5 px-1" aria-label="دستیار در حال نوشتن است" role="status">
+            <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-500 [animation-delay:-0.3s]" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-500 [animation-delay:-0.15s]" />
+            <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-500" />
+          </span>
+        ) : (
+          <p className="mixed-content whitespace-pre-wrap break-words text-[15px] leading-7 sm:text-base" dir="auto">{message.content}</p>
+        )}
         {time && (
           <time className={`mt-1.5 block text-[11px] ${customer ? "text-slate-300" : "text-slate-400"}`} dateTime={message.created_at}>
             {time}
@@ -128,17 +136,22 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   const [intakeValue, setIntakeValue] = useState("");
   const [customerName, setCustomerName] = useState(() => conversation?.customer?.name || "");
   const [content, setContent] = useState("");
+  const [pendingMessages, setPendingMessages] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef(null);
   const listEndRef = useRef(null);
   const previousConversationIdRef = useRef(conversation?.id || null);
+  const streamControllerRef = useRef(null);
 
   const resetLocalFlow = useCallback(() => {
+    streamControllerRef.current?.abort();
+    streamControllerRef.current = null;
     setIntakeStep("name");
     setIntakeValue("");
     setCustomerName("");
     setContent("");
+    setPendingMessages([]);
     setError("");
     setBusy(false);
   }, []);
@@ -150,6 +163,8 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     }
     previousConversationIdRef.current = currentConversationId;
   }, [conversation, resetLocalFlow]);
+
+  useEffect(() => () => streamControllerRef.current?.abort(), []);
 
   const handleIdleTimeout = useCallback(() => {
     const conversationId = conversation?.id;
@@ -176,8 +191,9 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         local: true,
       },
       ...(conversation.messages || []),
+      ...pendingMessages,
     ];
-  }, [conversation]);
+  }, [conversation, pendingMessages]);
 
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -228,20 +244,82 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
 
     setError("");
     setBusy(true);
+    setContent("");
+
+    const requestKey = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const pendingCustomerId = `pending-customer-${requestKey}`;
+    const pendingAssistantId = `pending-assistant-${requestKey}`;
+    let savedCustomerMessage = null;
+    let assistantContent = "";
+    const controller = new AbortController();
+    streamControllerRef.current = controller;
+
+    setPendingMessages([
+      {
+        id: pendingCustomerId,
+        role: "customer",
+        content: trimmedContent,
+        local: true,
+      },
+      {
+        id: pendingAssistantId,
+        role: "assistant",
+        content: "",
+        local: true,
+        streaming: true,
+      },
+    ]);
+
     try {
-      const result = await api.sendMessage(conversation.id, trimmedContent);
+      const result = await api.sendMessageStream(
+        conversation.id,
+        trimmedContent,
+        {
+          onCustomer: ({ message }) => {
+            savedCustomerMessage = message;
+            setPendingMessages((current) => current.map((pendingMessage) => (
+              pendingMessage.id === pendingCustomerId ? message : pendingMessage
+            )));
+          },
+          onDelta: (delta) => {
+            assistantContent += delta;
+            setPendingMessages((current) => current.map((pendingMessage) => (
+              pendingMessage.id === pendingAssistantId
+                ? { ...pendingMessage, content: assistantContent }
+                : pendingMessage
+            )));
+          },
+        },
+        controller.signal,
+      );
+      const finalCustomerMessage = savedCustomerMessage || result.customer_message;
       onConversationChange({
         ...conversation,
-        messages: [...(conversation.messages || []), result.message],
+        messages: [
+          ...(conversation.messages || []),
+          finalCustomerMessage,
+          result.assistant_message,
+        ].filter(Boolean),
       });
-      setContent("");
+      setPendingMessages([]);
     } catch (requestError) {
+      setPendingMessages([]);
+      if (requestError.name === "AbortError") return;
       if (requestError instanceof ApiError && [401, 403].includes(requestError.status)) {
         onSessionExpired();
         return;
       }
-      setError(requestError.message || "پیام ارسال نشد. دوباره تلاش کنید.");
+      if (savedCustomerMessage) {
+        onConversationChange({
+          ...conversation,
+          messages: [...(conversation.messages || []), savedCustomerMessage],
+        });
+      }
+      setError(requestError.message || "در پاسخ‌گویی مشکلی پیش آمد. پیام شما ذخیره شده است.");
     } finally {
+      if (streamControllerRef.current === controller) {
+        streamControllerRef.current = null;
+      }
       setBusy(false);
     }
   };
@@ -275,7 +353,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-3 sm:p-7 lg:p-9">
           <div className="chat-frame flex min-h-0 flex-1">
             <section className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[2rem]">
-              <button className="new-customer-button touch-button absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-2xl px-4 text-sm font-bold text-white sm:left-6 sm:top-6" onClick={onNewCustomer} type="button">
+              <button className="new-customer-button touch-button absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-2xl px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:left-6 sm:top-6" disabled={busy} onClick={onNewCustomer} type="button">
                 <Icon name="refresh" size={18} />
                 مشتری جدید
               </button>
