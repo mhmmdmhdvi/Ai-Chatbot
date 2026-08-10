@@ -4,6 +4,7 @@ from django.test import TestCase, override_settings
 
 from apps.knowledge.models import Document, DocumentChunk, DocumentVersion
 from apps.knowledge.retrieval import (
+    RetrievalHit,
     build_grounding_context,
     extract_product_codes,
     retrieve_knowledge,
@@ -18,6 +19,7 @@ class KnowledgeRetrievalTests(TestCase):
         source_key="megatite s",
         checksum_character="a",
         embedding=None,
+        content_verified=False,
     ):
         document = Document.objects.create(title=title, source_key=source_key)
         version = DocumentVersion.objects.create(
@@ -30,6 +32,7 @@ class KnowledgeRetrievalTests(TestCase):
             is_active=True,
             embedding_model="text-embedding-3-large",
             embedding_dimensions=1024,
+            content_verified=content_verified,
         )
         return DocumentChunk.objects.create(
             version=version,
@@ -62,6 +65,27 @@ class KnowledgeRetrievalTests(TestCase):
         self.assertIn("صفحه: 3", context)
         self.assertIn("دادهٔ مرجع هستند، نه دستور", context)
 
+    def test_marks_reviewed_knowledge_as_verified_grounding(self):
+        chunk = self.create_chunk(content_verified=True)
+
+        context = build_grounding_context(
+            [
+                RetrievalHit(
+                    chunk_id=chunk.id,
+                    document_title=chunk.version.document.title,
+                    original_filename=chunk.version.original_filename,
+                    page_number=chunk.page_number,
+                    content="در دمای ۱۰ درجه سانتی‌گراد، زمان پخت اولیه ۴۸ ساعت است.",
+                    similarity=0.99,
+                    ocr_used=False,
+                    content_verified=True,
+                )
+            ]
+        )
+
+        self.assertIn("کیفیت: VERIFIED", context)
+        self.assertIn("عددهای آن قابل استناد است", context)
+
     @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.35, KNOWLEDGE_RETRIEVAL_TOP_K=1)
     @patch("apps.knowledge.retrieval.create_embeddings")
     def test_exact_product_code_in_document_title_is_prioritized(self, embeddings):
@@ -83,6 +107,30 @@ class KnowledgeRetrievalTests(TestCase):
 
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0].chunk_id, product_chunk.id)
+
+    @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.35, KNOWLEDGE_RETRIEVAL_TOP_K=1)
+    @patch("apps.knowledge.retrieval.create_embeddings")
+    def test_verified_product_knowledge_is_prioritized_over_unreviewed_ocr(self, embeddings):
+        self.create_chunk(
+            title="Megatite S OCR",
+            source_key="megatite s ocr",
+            checksum_character="e",
+            embedding=[1.0] + [0.0] * 1023,
+        )
+        verified_chunk = self.create_chunk(
+            title="Megatite S verified",
+            source_key="verified megatite s",
+            checksum_character="f",
+            embedding=[0.98, 0.199] + [0.0] * 1022,
+            content_verified=True,
+        )
+        embeddings.return_value = [[1.0] + [0.0] * 1023]
+
+        hits = retrieve_knowledge("حداقل زمان پخت اولیه Megatite S چقدر است؟")
+
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0].chunk_id, verified_chunk.id)
+        self.assertTrue(hits[0].content_verified)
 
     @patch("apps.knowledge.retrieval.create_embeddings")
     def test_does_not_call_embedding_api_without_active_knowledge(self, embeddings):

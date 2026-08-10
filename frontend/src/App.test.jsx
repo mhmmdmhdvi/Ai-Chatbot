@@ -36,7 +36,6 @@ const kioskUser = { id: 2, username: "kiosk", is_staff: false };
 
 beforeEach(() => {
   document.cookie = "csrftoken=test-token; Path=/";
-  HTMLElement.prototype.scrollIntoView = vi.fn();
 });
 
 
@@ -186,7 +185,11 @@ describe("Persian kiosk application", () => {
     await user.click(await screen.findByRole("button", { name: "شروع" }));
 
     expect(await screen.findByText(/خیلی خوب، من آماده‌ام/)).toBeTruthy();
-    expect(screen.getByLabelText("پیام‌های گفتگو")).toBeTruthy();
+    const messageScroller = screen.getByLabelText("پیام‌های گفتگو");
+    expect(messageScroller).toBeTruthy();
+    expect(messageScroller.className).toContain("min-h-0");
+    expect(messageScroller.className).toContain("overflow-y-auto");
+    expect(messageScroller.className).toContain("touch-pan-y");
     const sessionRequest = fetchMock.mock.calls.find(
       ([url, options = {}]) => url === "/api/v1/sessions/" && options.method === "POST",
     );

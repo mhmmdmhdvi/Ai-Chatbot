@@ -9,6 +9,7 @@ from apps.knowledge.models import MessageSource
 from apps.knowledge.retrieval import (
     KnowledgeRetrievalError,
     build_grounding_context,
+    extract_product_codes,
     has_active_knowledge,
     retrieve_knowledge,
 )
@@ -19,6 +20,25 @@ from .serializers import MessageSerializer
 
 
 logger = logging.getLogger(__name__)
+
+
+def build_knowledge_query(conversation, customer_message):
+    current_question = customer_message.content
+    if extract_product_codes(current_question):
+        return current_question
+
+    previous_customer_messages = (
+        Message.objects.filter(
+            conversation=conversation,
+            role=Message.Role.CUSTOMER,
+        )
+        .exclude(pk=customer_message.pk)
+        .order_by("-created_at", "-id")[:4]
+    )
+    for previous_message in previous_customer_messages:
+        if extract_product_codes(previous_message.content):
+            return f"{previous_message.content}\n{current_question}"
+    return current_question
 
 
 def sse_event(event_name, payload):
@@ -56,7 +76,9 @@ def stream_conversation_response(*, conversation, customer_message, response_log
         response_log.save(update_fields=("provider", "model"))
 
         knowledge_is_active = has_active_knowledge()
-        retrieval_hits = retrieve_knowledge(customer_message.content)
+        retrieval_hits = retrieve_knowledge(
+            build_knowledge_query(conversation, customer_message)
+        )
         messages = build_conversation_context(conversation)
         if knowledge_is_active:
             messages.insert(

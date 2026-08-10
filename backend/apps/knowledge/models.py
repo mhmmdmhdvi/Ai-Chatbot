@@ -50,6 +50,7 @@ class DocumentVersion(models.Model):
     page_count = models.PositiveIntegerField("تعداد صفحه", default=0)
     extracted_character_count = models.PositiveIntegerField("تعداد نویسه استخراج‌شده", default=0)
     ocr_used = models.BooleanField("استخراج با OCR", default=False)
+    content_verified = models.BooleanField("محتوای تأییدشده", default=False, db_index=True)
     status = models.CharField(
         "وضعیت",
         max_length=16,

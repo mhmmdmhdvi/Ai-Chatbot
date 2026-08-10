@@ -61,7 +61,7 @@ export default function KioskShell({ onSessionExpired }) {
   }, [onSessionExpired]);
 
   return (
-    <div className="app-background gradient-world flex min-h-dvh flex-col">
+    <div className="app-background gradient-world flex h-dvh min-h-0 flex-col overflow-hidden">
       <div className="ambient-scene" aria-hidden="true">
         <span className="ambient-ribbon ambient-ribbon-one" />
         <span className="ambient-ribbon ambient-ribbon-two" />

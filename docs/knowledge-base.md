@@ -6,6 +6,8 @@ The 15 PDFs supplied on 2026-08-10 are all image-based scans. A read-only local 
 
 Do not treat exact OCR-derived numbers as approved technical specifications. Retrieved OCR sources are labelled `OCR_REVIEW_REQUIRED`, and the assistant is instructed to use them for general explanations while referring exact numeric questions for staff review.
 
+The page-2 application and curing table for **Megatite S** has been manually checked against the supplied PDF and is shipped as checksum-bound `VERIFIED` knowledge. It includes the 1:1 mix ratio, 45-minute working time at 25°C, 12-hour initial cure at 25°C, and the temperature-dependent cure tables. Exact values from this reviewed source may be answered directly. Other scanned technical tables remain unverified until separately reviewed.
+
 ## Design
 
 - Original files are private and stored in the `documents_data` Docker volume, outside static/public paths.
@@ -49,6 +51,17 @@ docker compose -f compose.yaml -f compose.prod.yaml run --rm \
   backend python manage.py index_documents --all-pending
 ```
 
+## Load reviewed technical values
+
+Reviewed manifests are versioned with the application and loaded separately from OCR documents. After deploying code and running migrations, load and embed them with:
+
+```bash
+docker compose -f compose.yaml -f compose.prod.yaml run --rm \
+  backend python manage.py load_verified_knowledge --embed
+```
+
+The command is idempotent: rerunning the same manifest reports it as a duplicate. Verified values receive retrieval priority, while the original OCR documents remain available for general narrative answers.
+
 ## Rollback or deactivate
 
 Version UUIDs and document source keys are visible in Django Admin.
@@ -74,4 +87,4 @@ Before customer use, test Persian questions for:
 - customer and document prompt-injection attempts;
 - answer-source accuracy in Django Admin.
 
-Exact technical values must remain a staff-review response until text-native originals or manually corrected and approved content are available.
+Exact technical values must remain a staff-review response unless they come from a `VERIFIED` source. At present, that exception covers only the reviewed page-2 application and curing values for Megatite S.

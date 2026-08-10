@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from apps.chat.ai import AICompletion, AIProviderError, AIStreamEvent
 from apps.chat.models import AIResponseLog, Conversation, Customer, Message
+from apps.chat.streaming import build_knowledge_query
 from apps.knowledge.models import Document, DocumentChunk, DocumentVersion, MessageSource
 from apps.knowledge.retrieval import RetrievalHit
 
@@ -73,6 +74,45 @@ class ChatApiTests(TestCase):
         )
         self.client = APIClient()
         self.client.force_login(self.user)
+
+    def test_follow_up_retrieval_keeps_the_recent_product_context(self):
+        conversation_id = self.create_session().data["id"]
+        conversation = Conversation.objects.get(pk=conversation_id)
+        previous = Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.CUSTOMER,
+            content="حداقل زمان پخت اولیه Megatite S چقدر است؟",
+        )
+        Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.ASSISTANT,
+            content="در دمای ۲۵ درجه، ۱۲ ساعت است.",
+        )
+        follow_up = Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.CUSTOMER,
+            content="در دمای ۱۰ درجه چقدر زمان لازم است؟",
+        )
+
+        query = build_knowledge_query(conversation, follow_up)
+
+        self.assertEqual(query, f"{previous.content}\n{follow_up.content}")
+
+    def test_new_explicit_product_replaces_previous_retrieval_context(self):
+        conversation_id = self.create_session().data["id"]
+        conversation = Conversation.objects.get(pk=conversation_id)
+        Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.CUSTOMER,
+            content="Megatite S چه کاربردی دارد؟",
+        )
+        current = Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.CUSTOMER,
+            content="حالا Megatite C را توضیح بده.",
+        )
+
+        self.assertEqual(build_knowledge_query(conversation, current), current.content)
 
     def create_session(self, name="محمد رضایی", phone_number="09121234567"):
         return self.client.post(

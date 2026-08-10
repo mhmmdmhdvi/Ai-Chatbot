@@ -111,7 +111,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef(null);
-  const listEndRef = useRef(null);
+  const scrollRef = useRef(null);
   const previousConversationIdRef = useRef(conversation?.id || null);
   const streamControllerRef = useRef(null);
 
@@ -164,7 +164,10 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   }, [conversation, pendingMessages]);
 
   useEffect(() => {
-    listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    const scrollContainer = scrollRef.current;
+    if (scrollContainer) {
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    }
   }, [displayMessages]);
 
   useEffect(() => {
@@ -297,7 +300,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
           online={online}
         />
       ) : (
-        <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-3 sm:p-7 lg:p-9">
+        <main className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden p-3 sm:p-7 lg:p-9">
           <div className="chat-frame flex min-h-0 flex-1">
             <section className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[2rem]">
               <button className="new-customer-button touch-button absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-2xl px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:left-6 sm:top-6" disabled={busy} onClick={onNewCustomer} type="button">
@@ -305,10 +308,14 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
                 چت جدید
               </button>
 
-              <div className="chat-scroll flex-1 overflow-y-auto px-4 pb-8 pt-24 sm:px-8 sm:pb-10" aria-live="polite" aria-label="پیام‌های گفتگو">
+              <div
+                className="chat-scroll min-h-0 flex-1 touch-pan-y overscroll-contain overflow-y-auto px-4 pb-8 pt-24 sm:px-8 sm:pb-10"
+                aria-live="polite"
+                aria-label="پیام‌های گفتگو"
+                ref={scrollRef}
+              >
                 <div className="mx-auto flex max-w-3xl flex-col gap-5">
                   {displayMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
-                  <div ref={listEndRef} />
                 </div>
               </div>
 

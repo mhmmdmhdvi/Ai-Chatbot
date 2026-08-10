@@ -4,7 +4,7 @@
 
 This file is the working implementation plan for the AI Customer Assistant project. Keep it updated as decisions are made and phases are completed.
 
-Planning status: **Phase 5/6 RAG implementation complete locally — document quality review and live indexing remain**
+Planning status: **Phase 5/6 RAG is live — reviewed technical values and Persian answer evaluation are in progress**
 
 The OpenAI adapter and live VPS connectivity test are complete. External AI calls remain disabled on the Tehran development machine; embeddings and production chat run only from the supported production environment described by the owner.
 
@@ -789,8 +789,9 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [x] Confirmed all 15 PDFs are scanned/image-based and require OCR.
 - [x] Processed 58 pages into 58 candidate chunks and approximately 74,000 characters.
 - [x] Verified that narrative Persian text is suitable for general retrieval after normalization.
-- [ ] Obtain text-native originals or manually review/correct exact technical tables; OCR dropped digits in some numeric values.
-- [ ] Import and activate the reviewed set on the VPS.
+- [ ] Continue obtaining text-native originals or manually reviewing exact technical tables; OCR dropped digits in some numeric values.
+- [x] Manually reviewed the Megatite S page-2 application/curing table and added it as checksum-bound verified knowledge.
+- [x] Imported and activated all 15 OCR documents on the VPS (15 ready versions, 58 active chunks).
 - [x] Mark OCR evidence as review-required so the model does not state unverified numbers as fact.
 
 ### Files/architecture
@@ -841,7 +842,7 @@ No public upload endpoint in the first version. Use a controlled management comm
 
 ### Definition of Done
 
-- [ ] Approved files can be imported and searched.
+- [x] Approved files can be imported and searched.
 - [x] Every chunk can be traced to a document version and location.
 - [x] Replacing a document does not leave ambiguous active content.
 - [ ] Documents survive container recreation and are backed up.
@@ -874,7 +875,7 @@ A fluent answer is not useful if it invents company prices, policies, or warrant
 - [x] Save answer-to-source relationships.
 - [ ] Optionally show source document names in the UI.
 - [ ] Evaluate vector-only retrieval.
-- [ ] Add limited lexical/hybrid retrieval only if evaluation shows it is needed.
+- [x] Add limited product-code-aware hybrid retrieval after live evaluation showed cross-product matches.
 - [ ] Compare Terra/Luna or the selected provider's models on the same evaluation set.
 
 ### Files/architecture
@@ -1412,7 +1413,7 @@ Preferred production starting point for additional headroom:
 
 ## Next action
 
-1. Request text-native originals for the scanned PDFs, or manually approve corrected OCR text for exact technical tables.
-2. Push and deploy the reviewed Phase 5/6 code, apply migrations, and import the approved PDFs on the VPS with OCR and embeddings.
+1. Continue approving exact technical tables product by product; Megatite S page 2 is the first verified source.
+2. Push and deploy the verified-knowledge, contextual-retrieval, and fixed touch-scrolling changes; then load the checked-in verified source on the VPS.
 3. Run a Persian evaluation set covering general questions, exact specifications, unknown questions, and prompt-injection attempts before customer use.
 4. Open the application on the touchscreen stand and verify touch comfort, Persian typing, and the Windows on-screen keyboard.

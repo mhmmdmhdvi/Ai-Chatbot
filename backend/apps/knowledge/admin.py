@@ -25,6 +25,7 @@ class DocumentVersionInline(ReadOnlyAdminMixin, admin.TabularInline):
         "page_count",
         "extracted_character_count",
         "ocr_used",
+        "content_verified",
         "indexed_at",
     )
     readonly_fields = fields
@@ -54,10 +55,18 @@ class DocumentVersionAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
         "is_active",
         "page_count",
         "ocr_used",
+        "content_verified",
         "chunk_count",
         "indexed_at",
     )
-    list_filter = ("status", "is_active", "ocr_used", "embedding_model", "created_at")
+    list_filter = (
+        "status",
+        "is_active",
+        "ocr_used",
+        "content_verified",
+        "embedding_model",
+        "created_at",
+    )
     search_fields = ("document__title", "original_filename", "sha256")
     list_select_related = ("document",)
     ordering = ("-created_at",)
