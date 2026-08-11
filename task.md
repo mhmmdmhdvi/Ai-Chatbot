@@ -4,7 +4,7 @@
 
 This file is the working implementation plan for the AI Customer Assistant project. Keep it updated as decisions are made and phases are completed.
 
-Planning status: **Phase 5/6 RAG is live — verified S, C, SF, G, and T knowledge is active in production; Megatite SP is reviewed and ready for deployment**
+Planning status: **Phase 5/6 RAG is live — verified S, C, SF, G, T, and SP knowledge is active in production; reviewed CT, LT, and Pigment knowledge is ready for deployment**
 
 The OpenAI adapter and live VPS connectivity test are complete. External AI calls remain disabled on the Tehran development machine; embeddings and production chat run only from the supported production environment described by the owner.
 
@@ -815,7 +815,12 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [ ] Finish Megatite T production cleanup by deactivating only the matching legacy T source after its verified DOCX and acceptance questions passed.
 - [x] Audit Megatite SP against its branded brochure and internal FAQ, correct the ratio to 40:1 by weight (200 g resin to about 5 g hardener), and build a strict-import-safe reviewed DOCX with non-load-bearing and peroxide-safety boundaries.
 - [x] Add compound SP alias handling and retrieval isolation so SP remains distinct from S and SF while comparison queries still work.
-- [ ] Import the reviewed Megatite SP DOCX on production, run its acceptance questions, then deactivate only the matching legacy SP source.
+- [x] Import the reviewed Megatite SP DOCX on production and run its acceptance questions successfully.
+- [ ] Confirm that only the exact matching legacy SP source was deactivated after the guarded cleanup command.
+- [x] Audit Megatite CT and LT against their brochures, correct their transcriptions and time tables, and build strict-import-safe reviewed DOCX files with explicit cross-product and engineering boundaries.
+- [x] Audit Megatite Pigment against its brochure, correct the maximum dosage to 2% by weight (20 g/kg), restore the B-then-A mixing order, and build a strict-import-safe reviewed DOCX.
+- [x] Add Pigment/رنگدانه alias handling and retrieval isolation while allowing explicit compatibility questions with T, C, or LT.
+- [ ] Import reviewed CT, LT, and Pigment knowledge on production, run their acceptance suites, then deactivate only their exact matching legacy sources.
 - [x] Render the assistant's safe bold and list formatting correctly in the Persian chat UI without interpreting customer Markdown or raw HTML.
 
 ### Files/architecture
@@ -1440,8 +1445,8 @@ Preferred production starting point for additional headroom:
 
 ## Next action
 
-1. Deactivate only the exact legacy Megatite T source now that the verified T questions passed.
-2. Push and deploy the Megatite SP alias update.
-3. Upload, checksum, dry-run, import, and embed the reviewed Megatite SP DOCX on the VPS; run its Persian acceptance questions and then deactivate only its matching legacy source.
+1. Confirm the guarded legacy-source cleanup for Megatite T and SP without deleting historical records.
+2. Push and deploy the combined CT/LT/Pigment routing update.
+3. Upload, checksum, dry-run, import, and embed the three reviewed DOCX files; run their Persian acceptance suites and deactivate only the exact matching legacy sources.
 4. Import and test the still-pending reviewed general catalog, then continue the same human-reviewed DOCX workflow for the remaining product documents.
 5. Open the application on the touchscreen stand and verify touch comfort, Persian typing, scrolling, and the Windows on-screen keyboard.

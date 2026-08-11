@@ -147,6 +147,23 @@ class KnowledgeRetrievalTests(TestCase):
                 with self.subTest(query=query):
                     self.assertEqual(extract_product_codes(query), {expected_code})
 
+    def test_pigment_aliases_are_canonicalized(self):
+        queries = (
+            "Megatite Pigment",
+            "Megatite Pigments",
+            "مگاتایت پیگمنت",
+            "مگاتایت پیگمنت‌ها",
+            "پیگمنت مگاتایت",
+            "رنگدانه مگاتایت",
+            "رنگ‌دانه مگاتایت",
+            "رنگ دانه مگاتایت",
+            "رنگ-دانه مگاتایت",
+        )
+
+        for query in queries:
+            with self.subTest(query=query):
+                self.assertEqual(extract_product_codes(query), {"pigment"})
+
     def test_does_not_treat_gram_or_temperature_units_as_product_codes(self):
         self.assertEqual(
             extract_product_codes("۱۰۰ g چسب Megatite C در ۲۵°C"),
@@ -309,6 +326,55 @@ class KnowledgeRetrievalTests(TestCase):
                 self.assertEqual(hit_ids[0], expected_chunk.id)
                 self.assertIn(general_chunk.id, hit_ids)
                 self.assertTrue(excluded_ids.isdisjoint(hit_ids))
+
+    @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.35, KNOWLEDGE_RETRIEVAL_TOP_K=6)
+    @patch("apps.knowledge.retrieval.create_embeddings")
+    def test_pigment_queries_are_isolated_but_allow_named_compatible_product(self, embeddings):
+        general_chunk = self.create_chunk(
+            title="Megatite general catalog",
+            source_key="verified general catalog pigment isolation",
+            checksum_character="7",
+            embedding=[1.0] + [0.0] * 1023,
+            content_verified=True,
+        )
+        pigment_chunk = self.create_chunk(
+            title="Megatite Pigment verified technical data",
+            source_key="verified megatite pigment isolation",
+            checksum_character="8",
+            embedding=[0.95, 0.3122499] + [0.0] * 1022,
+            content_verified=True,
+        )
+        t_chunk = self.create_chunk(
+            title="Megatite T verified technical data",
+            source_key="verified megatite t pigment isolation",
+            checksum_character="9",
+            embedding=[0.90, 0.435] + [0.0] * 1022,
+            content_verified=True,
+        )
+        lt_chunk = self.create_chunk(
+            title="Megatite LT verified technical data",
+            source_key="verified megatite lt pigment isolation",
+            checksum_character="c",
+            embedding=[0.85, 0.5267827] + [0.0] * 1022,
+            content_verified=True,
+        )
+        embeddings.return_value = [[1.0] + [0.0] * 1023]
+
+        pigment_hit_ids = [
+            hit.chunk_id for hit in retrieve_knowledge("رنگ‌دانه مگاتایت چطور مصرف می‌شود؟")
+        ]
+        self.assertEqual(pigment_hit_ids[0], pigment_chunk.id)
+        self.assertIn(general_chunk.id, pigment_hit_ids)
+        self.assertNotIn(t_chunk.id, pigment_hit_ids)
+        self.assertNotIn(lt_chunk.id, pigment_hit_ids)
+
+        compatibility_hit_ids = [
+            hit.chunk_id for hit in retrieve_knowledge("پیگمنت مگاتایت برای LT چقدر است؟")
+        ]
+        self.assertIn(pigment_chunk.id, compatibility_hit_ids)
+        self.assertIn(lt_chunk.id, compatibility_hit_ids)
+        self.assertIn(general_chunk.id, compatibility_hit_ids)
+        self.assertNotIn(t_chunk.id, compatibility_hit_ids)
 
     @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.35, KNOWLEDGE_RETRIEVAL_TOP_K=6)
     @patch("apps.knowledge.retrieval.create_embeddings")

@@ -24,6 +24,10 @@ ASCII_CT_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])c[\s._-]+t(?![a-z0-9])")
 ASCII_LT_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])l[\s._-]+t(?![a-z0-9])")
 PERSIAN_CT_ALIAS_PATTERN = re.compile(r"(?<!\w)سی[\s\u200c._-]*تی(?!\w)")
 PERSIAN_LT_ALIAS_PATTERN = re.compile(r"(?<!\w)ال[\s\u200c._-]*تی(?!\w)")
+ASCII_PIGMENT_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])pigments?(?![a-z0-9])")
+PERSIAN_PIGMENT_ALIAS_PATTERN = re.compile(
+    r"(?<!\w)(?:پیگمنت|رنگ[\s\u200c._-]*دانه)(?:\s*ها)?(?!\w)"
+)
 MEASUREMENT_CODE_PATTERN = re.compile(
     r"(?<![a-z0-9])\d+(?:[.,]\d+)?\s*°?\s*(?:g|c)(?![a-z0-9])"
 )
@@ -88,6 +92,8 @@ def extract_product_codes(query):
         normalized = ASCII_LT_ALIAS_PATTERN.sub(" lt ", normalized)
         normalized = PERSIAN_CT_ALIAS_PATTERN.sub(" ct ", normalized)
         normalized = PERSIAN_LT_ALIAS_PATTERN.sub(" lt ", normalized)
+        normalized = ASCII_PIGMENT_ALIAS_PATTERN.sub(" pigment ", normalized)
+        normalized = PERSIAN_PIGMENT_ALIAS_PATTERN.sub(" pigment ", normalized)
 
     code_source = MEASUREMENT_CODE_PATTERN.sub(" ", normalized)
     ascii_tokens = set(re.findall(r"[a-z0-9]+", code_source))
