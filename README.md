@@ -77,11 +77,12 @@ Safe configuration placeholders are documented in `.env.example`. Provider secre
 
 - `AI_PROVIDER=disabled` keeps all external AI calls off.
 - `OPENAI_MODEL`, embedding, timeout, output-limit, retrieval, and bounded-context settings configure the production OpenAI adapter.
+- `OPENAI_DOCUMENT_EXTRACTION_MODEL`, `OPENAI_DOCUMENT_TIMEOUT_SECONDS`, and `OPENAI_DOCUMENT_MAX_OUTPUT_TOKENS` configure the private high-detail PDF extraction job.
 - A completed provider response is saved once as an assistant message.
 - Provider, model, token counts, latency, request identifiers, and safe error categories appear under **AI response logs** in Django Admin.
 - Raw provider errors, prompts, customer phone numbers, and secrets are not written to the AI usage log.
 
-PDF OCR, versioned imports, pgvector retrieval, grounding, and answer-source tracking are implemented. The supplied scans passed a narrative-text audit, but some table digits require text-native originals or manual review before exact technical specifications can be activated. See [`docs/knowledge-base.md`](docs/knowledge-base.md).
+PDF OCR, two-pass visual extraction, versioned imports, pgvector retrieval, grounding, and answer-source tracking are implemented. Exact technical values become active only when both visual passes agree and neither reports uncertainty. See [`docs/knowledge-base.md`](docs/knowledge-base.md).
 
 ## Production deployment
 

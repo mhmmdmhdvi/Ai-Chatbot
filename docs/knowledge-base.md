@@ -6,7 +6,9 @@ The 15 PDFs supplied on 2026-08-10 are all image-based scans. A read-only local 
 
 Do not treat exact OCR-derived numbers as approved technical specifications. Retrieved OCR sources are labelled `OCR_REVIEW_REQUIRED`, and the assistant is instructed to use them for general explanations while referring exact numeric questions for staff review.
 
-The page-2 application and curing table for **Megatite S** has been manually checked against the supplied PDF and is shipped as checksum-bound `VERIFIED` knowledge. It includes the 1:1 mix ratio, 45-minute working time at 25°C, 12-hour initial cure at 25°C, and the temperature-dependent cure tables. Exact values from this reviewed source may be answered directly. Other scanned technical tables remain unverified until separately reviewed.
+The page-2 application and curing table for **Megatite S** has been manually checked against the supplied PDF and is shipped as checksum-bound `VERIFIED` knowledge. It includes the 1:1 mix ratio, 45-minute working time at 25°C, 12-hour initial cure at 25°C, and the temperature-dependent cure tables.
+
+The vision extraction pipeline was validated against all three pages of the same datasheet on 2026-08-11. It recovered 38 structured technical numeric facts, and both high-detail passes agreed on every technical value. The remaining PDFs must pass the same production extraction before their exact values become active.
 
 ## Design
 
@@ -51,6 +53,37 @@ docker compose -f compose.yaml -f compose.prod.yaml run --rm \
   backend python manage.py index_documents --all-pending
 ```
 
+## High-detail extraction for scanned PDFs
+
+Use the vision command for the supplied image-only PDFs. It sends the original PDF so the model receives both page images and any available PDF text, requests structured page output, and performs two independent passes. Technical numeric facts are compared between passes; a page with uncertainty or a disagreement is retained in the private audit report but excluded from active knowledge.
+
+Run extraction and embedding once on the production VPS, where the private imports already exist:
+
+```bash
+cd /opt/ai-chatbot
+
+docker compose -f compose.yaml -f compose.prod.yaml run --rm \
+  --volume "/opt/ai-chatbot/imports/New folder:/imports:ro" \
+  backend python manage.py extract_documents_with_vision \
+  /imports --passes 2 --embed \
+  2>&1 | tee /var/tmp/ai-chatbot-vision-import.log
+```
+
+The command is resumable. A matching extraction report is reused on retry, so a failed embedding does not repeat paid vision calls. Use `--force` only when intentionally replacing an extraction after changing the prompt or model.
+
+Expected output for each file is `trusted_pages=N/N`, `review_pages=0`, and `INDEXED ... status=ready`. Any `REVIEW_REQUIRED` page must be checked before it can be used for exact answers. Private reports and generated verified manifests remain in the persistent `documents_data` volume and are not served by Nginx.
+
+Useful checks after the run:
+
+```bash
+grep -E '^(EXTRACTED|REUSED|INDEXED|DUPLICATE|REVIEW_REQUIRED|FAILED)' \
+  /var/tmp/ai-chatbot-vision-import.log
+
+docker compose -f compose.yaml -f compose.prod.yaml exec -T backend \
+  python manage.py shell -c \
+  "from apps.knowledge.models import DocumentVersion; print('VISION_READY=', DocumentVersion.objects.filter(document__source_key__startswith='verified:vision:', status='ready').count())"
+```
+
 ## Load reviewed technical values
 
 Reviewed manifests are versioned with the application and loaded separately from OCR documents. After deploying code and running migrations, load and embed them with:
@@ -87,4 +120,4 @@ Before customer use, test Persian questions for:
 - customer and document prompt-injection attempts;
 - answer-source accuracy in Django Admin.
 
-Exact technical values must remain a staff-review response unless they come from a `VERIFIED` source. At present, that exception covers only the reviewed page-2 application and curing values for Megatite S.
+Exact technical values must remain a staff-review response unless they come from a `VERIFIED` source. This includes the manually checked Megatite S page-2 source and pages accepted by the two-pass vision verifier.

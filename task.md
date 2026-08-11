@@ -4,7 +4,7 @@
 
 This file is the working implementation plan for the AI Customer Assistant project. Keep it updated as decisions are made and phases are completed.
 
-Planning status: **Phase 5/6 RAG is live — reviewed technical values and Persian answer evaluation are in progress**
+Planning status: **Phase 5/6 RAG is live — two-pass visual document extraction and seller-expert responses are in progress**
 
 The OpenAI adapter and live VPS connectivity test are complete. External AI calls remain disabled on the Tehran development machine; embeddings and production chat run only from the supported production environment described by the owner.
 
@@ -793,6 +793,12 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [x] Manually reviewed the Megatite S page-2 application/curing table and added it as checksum-bound verified knowledge.
 - [x] Imported and activated all 15 OCR documents on the VPS (15 ready versions, 58 active chunks).
 - [x] Mark OCR evidence as review-required so the model does not state unverified numbers as fact.
+- [x] Add high-detail OpenAI PDF vision extraction with strict structured output and complete page transcription.
+- [x] Add a second visual audit pass and compare technical numeric facts while excluding page/footer/contact numbers.
+- [x] Keep uncertain or disagreeing pages in a private report and out of active knowledge.
+- [x] Make extraction resumable so an embedding retry does not repeat paid vision calls.
+- [x] Validate the pipeline on all 3 pages of the Megatite S datasheet (38 numeric facts, no cross-pass disagreement).
+- [ ] Run the two-pass extraction and embedding job once for all 15 private PDFs on the production VPS.
 
 ### Files/architecture
 
@@ -801,6 +807,8 @@ Document extraction and lifecycle quality determine the reliability of the later
 - `backend/apps/knowledge/chunking.py`
 - `backend/apps/knowledge/repository.py`
 - `backend/apps/knowledge/management/commands/import_documents.py`
+- `backend/apps/knowledge/management/commands/extract_documents_with_vision.py`
+- `backend/apps/knowledge/vision_extraction.py`
 
 ### Dependencies
 
@@ -1413,7 +1421,7 @@ Preferred production starting point for additional headroom:
 
 ## Next action
 
-1. Continue approving exact technical tables product by product; Megatite S page 2 is the first verified source.
-2. Push and deploy the verified-knowledge, contextual-retrieval, and fixed touch-scrolling changes; then load the checked-in verified source on the VPS.
-3. Run a Persian evaluation set covering general questions, exact specifications, unknown questions, and prompt-injection attempts before customer use.
+1. Push and deploy the vision-extraction and seller-expert prompt changes.
+2. Run the resumable two-pass extraction with embedding once for all 15 private PDFs on the VPS; review any page reported as uncertain.
+3. Run a Persian evaluation set covering recommendations, comparisons, exact specifications, unknown questions, and prompt-injection attempts.
 4. Open the application on the touchscreen stand and verify touch comfort, Persian typing, and the Windows on-screen keyboard.
