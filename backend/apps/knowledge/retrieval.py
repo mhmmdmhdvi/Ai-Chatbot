@@ -15,11 +15,36 @@ class KnowledgeRetrievalError(RuntimeError):
     pass
 
 
-PRODUCT_CODES = frozenset({"s", "c", "g", "t", "sf", "sp", "lt", "hc", "ct", "pigment"})
+PRODUCT_CODES = frozenset(
+    {"s", "c", "g", "t", "sf", "sp", "lt", "hc3000", "ct", "pigment"}
+)
+DOCUMENT_PRODUCT_CODES = PRODUCT_CODES | {"hc"}
 ASCII_SF_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])s[\s._-]+f(?![a-z0-9])")
 PERSIAN_SF_ALIAS_PATTERN = re.compile(r"(?<!\w)اس[\s\u200c._-]*اف(?!\w)")
 ASCII_SP_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])s[\s._-]+p(?![a-z0-9])")
 PERSIAN_SP_ALIAS_PATTERN = re.compile(r"(?<!\w)اس[\s\u200c._-]*پی(?!\w)")
+ASCII_HC3000_ALIAS_PATTERN = re.compile(
+    r"(?<![a-z0-9])h[\s._-]*c[\s._-]*3000(?![a-z0-9])"
+)
+PERSIAN_HC3000_ALIAS_PATTERN = re.compile(
+    r"(?<!\w)اچ[\s\u200c._-]*سی[\s\u200c._-]*3000(?!\w)"
+)
+ASCII_UNKNOWN_HC_NUMBER_PATTERN = re.compile(
+    r"(?<![a-z0-9])h[\s._-]*c(?![\s._-]*3000(?![0-9]))[\s._-]*\d+(?![a-z0-9])"
+)
+PERSIAN_UNKNOWN_HC_NUMBER_PATTERN = re.compile(
+    r"(?<!\w)اچ[\s\u200c._-]*سی"
+    r"(?![\s\u200c._-]*3000(?![0-9]))[\s\u200c._-]*\d+(?!\w)"
+)
+ASCII_LEGACY_HC_ALIAS_PATTERN = re.compile(
+    r"(?<![a-z0-9])h[\s._-]*c(?![a-z0-9]|[\s._-]*\d)"
+)
+PERSIAN_LEGACY_HC_ALIAS_PATTERN = re.compile(
+    r"(?<!\w)اچ[\s\u200c._-]*سی(?!\w|[\s\u200c._-]*\d)"
+)
+HC3000_DOCUMENT_TOKEN_PATTERN = (
+    r"(^|[^a-z0-9])h[ ._-]*c[ ._-]*3000([^a-z0-9]|$)"
+)
 ASCII_CT_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])c[\s._-]+t(?![a-z0-9])")
 ASCII_LT_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])l[\s._-]+t(?![a-z0-9])")
 ASCII_LT_GRADE_ALIAS_PATTERN = re.compile(
@@ -41,7 +66,6 @@ PERSIAN_PRODUCT_CODE_ALIASES = (
     ("اس اف", "sf"),
     ("اس پی", "sp"),
     ("ال تی", "lt"),
-    ("اچ سی", "hc"),
     ("سی تی", "ct"),
     ("پیگمنت", "pigment"),
     ("اس", "s"),
@@ -89,6 +113,13 @@ def extract_product_codes(query):
     has_product_context = (
         "megatite" in normalized or "مگاتایت" in normalized or "چسب" in normalized
     )
+    # HC3000 is the canonical product. The old HC label is recognized only in
+    # branded query context, while legacy HC documents remain separately
+    # classifiable so their conflicting values can be excluded.
+    normalized = ASCII_HC3000_ALIAS_PATTERN.sub(" hc3000 ", normalized)
+    normalized = PERSIAN_HC3000_ALIAS_PATTERN.sub(" hc3000 ", normalized)
+    normalized = ASCII_UNKNOWN_HC_NUMBER_PATTERN.sub(" ", normalized)
+    normalized = PERSIAN_UNKNOWN_HC_NUMBER_PATTERN.sub(" ", normalized)
     # LT grade codes and Pigment terms are distinctive enough to recognize
     # without a brand prefix. Generic compound aliases remain context-gated so
     # ordinary Persian words such as `سیتی` are not mistaken for products.
@@ -97,6 +128,8 @@ def extract_product_codes(query):
     normalized = ASCII_PIGMENT_ALIAS_PATTERN.sub(" pigment ", normalized)
     normalized = PERSIAN_PIGMENT_ALIAS_PATTERN.sub(" pigment ", normalized)
     if has_product_context:
+        normalized = ASCII_LEGACY_HC_ALIAS_PATTERN.sub(" hc3000 ", normalized)
+        normalized = PERSIAN_LEGACY_HC_ALIAS_PATTERN.sub(" hc3000 ", normalized)
         normalized = ASCII_SF_ALIAS_PATTERN.sub(" sf ", normalized)
         normalized = PERSIAN_SF_ALIAS_PATTERN.sub(" sf ", normalized)
         normalized = ASCII_SP_ALIAS_PATTERN.sub(" sp ", normalized)
@@ -122,15 +155,24 @@ def extract_product_codes(query):
 def _product_code_filter(product_codes):
     condition = Q()
     for code in product_codes:
-        token_pattern = rf"(^|[^a-z0-9]){re.escape(code)}([^a-z0-9]|$)"
+        token_pattern = (
+            HC3000_DOCUMENT_TOKEN_PATTERN
+            if code == "hc3000"
+            else rf"(^|[^a-z0-9]){re.escape(code)}([^a-z0-9]|$)"
+        )
         condition |= Q(version__document__title__iregex=token_pattern)
         condition |= Q(version__original_filename__iregex=token_pattern)
     return condition
 
 
 def _document_product_codes(chunk):
-    label = f"{chunk.version.document.title} {chunk.version.original_filename}".casefold()
-    return PRODUCT_CODES.intersection(re.findall(r"[a-z0-9]+", label))
+    label = normalize_persian_text(
+        f"{chunk.version.document.title} {chunk.version.original_filename}"
+    ).casefold()
+    label = label.replace("\u200c", " ")
+    label = ASCII_HC3000_ALIAS_PATTERN.sub(" hc3000 ", label)
+    label = PERSIAN_HC3000_ALIAS_PATTERN.sub(" hc3000 ", label)
+    return DOCUMENT_PRODUCT_CODES.intersection(re.findall(r"[a-z0-9]+", label))
 
 
 def retrieve_knowledge(query):

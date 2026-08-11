@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
+from xml.etree import ElementTree
 from zipfile import BadZipFile, ZipFile
 
 from docx import Document as open_docx
@@ -14,7 +15,11 @@ MAX_ARCHIVE_ENTRIES = 2_048
 MAX_UNCOMPRESSED_BYTES = 100 * 1024 * 1024
 MAX_COMPRESSION_RATIO = 1_000
 UNSUPPORTED_PART_PREFIXES = (
+    "customxml/",
+    "docprops/custom",
+    "docprops/thumbnail",
     "word/activex/",
+    "word/bibliography",
     "word/charts/",
     "word/comments",
     "word/diagrams/",
@@ -25,6 +30,7 @@ UNSUPPORTED_PART_PREFIXES = (
     "word/glossary/",
     "word/header",
     "word/media/",
+    "word/customxml/",
 )
 UNSUPPORTED_DOCUMENT_MARKERS = (
     b"alternatecontent",
@@ -73,6 +79,8 @@ def _validate_archive(source, *, max_uncompressed_bytes):
                     raise DocxExtractionError("The DOCX archive contains an unsafe path.")
                 if member.flag_bits & 0x1:
                     raise DocxExtractionError("Encrypted DOCX archives are not supported.")
+                if normalized_name in names:
+                    raise DocxExtractionError("The DOCX archive contains duplicate entries.")
                 names.add(normalized_name)
                 uncompressed_size += member.file_size
                 compressed_size += member.compress_size
@@ -103,6 +111,23 @@ def _validate_archive(source, *, max_uncompressed_bytes):
                     "The DOCX contains content outside paragraphs and tables. "
                     "Move all reviewed knowledge into the document body before importing."
                 )
+
+            for relationship_name in (
+                name for name in names if name.casefold().endswith(".rels")
+            ):
+                try:
+                    relationships = ElementTree.fromstring(archive.read(relationship_name))
+                except ElementTree.ParseError as exc:
+                    raise DocxExtractionError(
+                        "The DOCX contains malformed package relationships."
+                    ) from exc
+                if any(
+                    relationship.attrib.get("TargetMode", "").casefold() == "external"
+                    for relationship in relationships
+                ):
+                    raise DocxExtractionError(
+                        "External DOCX relationships are not supported for trusted import."
+                    )
 
             document_xml = archive.read("word/document.xml").lower()
             if any(marker in document_xml for marker in UNSUPPORTED_DOCUMENT_MARKERS):

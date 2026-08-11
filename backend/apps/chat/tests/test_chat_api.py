@@ -114,7 +114,7 @@ class ChatApiTests(TestCase):
 
         self.assertEqual(build_knowledge_query(conversation, current), current.content)
 
-    def test_lt_grade_and_bare_pigment_replace_stale_product_context(self):
+    def test_explicit_compound_products_replace_stale_product_context(self):
         cases = (
             (
                 "Megatite CT چه کاربردی دارد؟",
@@ -123,6 +123,18 @@ class ChatApiTests(TestCase):
             (
                 "Megatite LT چه کاربردی دارد؟",
                 "ترتیب افزودن پیگمنت به اجزای A و B چیست؟",
+            ),
+            (
+                "Megatite C چه کاربردی دارد؟",
+                "حداقل دمای اجرای HC3000 چقدر است؟",
+            ),
+            (
+                "Megatite C چه کاربردی دارد؟",
+                "حداقل دمای اجرای اچ سی ۳۰۰۰ چقدر است؟",
+            ),
+            (
+                "Megatite C چه کاربردی دارد؟",
+                "حالا مگاتایت HC را توضیح بده.",
             ),
         )
 
@@ -145,6 +157,25 @@ class ChatApiTests(TestCase):
                     build_knowledge_query(conversation, current),
                     current.content,
                 )
+
+    def test_hc3000_follow_up_keeps_the_recent_product_context(self):
+        conversation_id = self.create_session().data["id"]
+        conversation = Conversation.objects.get(pk=conversation_id)
+        previous = Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.CUSTOMER,
+            content="Megatite HC3000 برای کاشت میلگرد چه کاربردی دارد؟",
+        )
+        current = Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.CUSTOMER,
+            content="عمق کاشت چقدر باشد؟",
+        )
+
+        self.assertEqual(
+            build_knowledge_query(conversation, current),
+            f"{previous.content}\n{current.content}",
+        )
 
     def create_session(self, name="محمد رضایی", phone_number="09121234567"):
         return self.client.post(

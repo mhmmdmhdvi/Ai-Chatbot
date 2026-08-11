@@ -95,6 +95,46 @@ class KnowledgeRetrievalTests(TestCase):
             {"sp"},
         )
 
+    def test_hc3000_aliases_use_one_canonical_product_code(self):
+        queries = (
+            "HC3000 چه کاربردی دارد؟",
+            "HC 3000 چه کاربردی دارد؟",
+            "H.C.3000 چه کاربردی دارد؟",
+            "H-C-3000 چه کاربردی دارد؟",
+            "H_C_3000 چه کاربردی دارد؟",
+            "مگاتایت HC۳۰۰۰ چه کاربردی دارد؟",
+            "اچ سی ۳۰۰۰ چه کاربردی دارد؟",
+            "اچ‌سی۳۰۰۰ چه کاربردی دارد؟",
+        )
+
+        for query in queries:
+            with self.subTest(query=query):
+                self.assertEqual(extract_product_codes(query), {"hc3000"})
+
+    def test_branded_legacy_hc_aliases_route_to_hc3000(self):
+        queries = (
+            "Megatite HC چه کاربردی دارد؟",
+            "Megatite H.C چه کاربردی دارد؟",
+            "Megatite H-C چه کاربردی دارد؟",
+            "مگاتایت اچ سی چه کاربردی دارد؟",
+            "چسب HC چه کاربردی دارد؟",
+        )
+
+        for query in queries:
+            with self.subTest(query=query):
+                self.assertEqual(extract_product_codes(query), {"hc3000"})
+
+    def test_hc3000_aliases_do_not_leak_c_or_match_unrelated_tokens(self):
+        self.assertEqual(extract_product_codes("HC"), set())
+        self.assertEqual(extract_product_codes("HC 3001"), set())
+        self.assertEqual(extract_product_codes("Megatite HC3001 چیست؟"), set())
+        self.assertEqual(extract_product_codes("Megatite H C 3001 چیست؟"), set())
+        self.assertEqual(extract_product_codes("مگاتایت اچ سی ۳۰۰۱ چیست؟"), set())
+        self.assertEqual(extract_product_codes("HCl با چسب سازگار است؟"), set())
+        self.assertEqual(extract_product_codes("HCT"), set())
+        self.assertEqual(extract_product_codes("دمای آزمون 3000 C است"), set())
+        self.assertEqual(extract_product_codes("Megatite C چیست؟"), {"c"})
+
     def test_extracts_both_products_in_s_and_sp_comparison(self):
         self.assertEqual(extract_product_codes("فرق Megatite S و SP چیست؟"), {"s", "sp"})
         self.assertEqual(extract_product_codes("فرق مگاتایت اس و اس پی چیست؟"), {"s", "sp"})
@@ -359,6 +399,58 @@ class KnowledgeRetrievalTests(TestCase):
                 self.assertEqual(hit_ids[0], expected_chunk.id)
                 self.assertIn(general_chunk.id, hit_ids)
                 self.assertTrue(excluded_ids.isdisjoint(hit_ids))
+
+    @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.35, KNOWLEDGE_RETRIEVAL_TOP_K=6)
+    @patch("apps.knowledge.retrieval.create_embeddings")
+    def test_hc3000_queries_exclude_legacy_hc_and_megatite_c(self, embeddings):
+        general_chunk = self.create_chunk(
+            title="Megatite general catalog",
+            source_key="verified general catalog hc3000 isolation",
+            checksum_character="1",
+            embedding=[1.0] + [0.0] * 1023,
+            content_verified=True,
+        )
+        hc3000_chunk = self.create_chunk(
+            title="Megatite H.C.3000 verified technical data",
+            source_key="verified megatite hc3000 isolation",
+            checksum_character="2",
+            embedding=[0.80, 0.60] + [0.0] * 1022,
+            content_verified=True,
+        )
+        legacy_hc_chunk = self.create_chunk(
+            title="10 - HC - FA",
+            source_key="10 - hc - fa",
+            checksum_character="3",
+            embedding=[0.99, 0.141067] + [0.0] * 1022,
+        )
+        c_chunk = self.create_chunk(
+            title="Megatite C verified technical data",
+            source_key="verified megatite c hc3000 isolation",
+            checksum_character="4",
+            embedding=[0.95, 0.3122499] + [0.0] * 1022,
+            content_verified=True,
+        )
+        embeddings.return_value = [[1.0] + [0.0] * 1023]
+
+        hc_hit_ids = [hit.chunk_id for hit in retrieve_knowledge("مگاتایت HC3000 چیست؟")]
+        self.assertEqual(hc_hit_ids[0], hc3000_chunk.id)
+        self.assertIn(general_chunk.id, hc_hit_ids)
+        self.assertNotIn(legacy_hc_chunk.id, hc_hit_ids)
+        self.assertNotIn(c_chunk.id, hc_hit_ids)
+
+        c_hit_ids = [hit.chunk_id for hit in retrieve_knowledge("Megatite C چیست؟")]
+        self.assertEqual(c_hit_ids[0], c_chunk.id)
+        self.assertIn(general_chunk.id, c_hit_ids)
+        self.assertNotIn(hc3000_chunk.id, c_hit_ids)
+        self.assertNotIn(legacy_hc_chunk.id, c_hit_ids)
+
+        comparison_hit_ids = [
+            hit.chunk_id for hit in retrieve_knowledge("فرق HC3000 و Megatite C چیست؟")
+        ]
+        self.assertIn(hc3000_chunk.id, comparison_hit_ids)
+        self.assertIn(c_chunk.id, comparison_hit_ids)
+        self.assertIn(general_chunk.id, comparison_hit_ids)
+        self.assertNotIn(legacy_hc_chunk.id, comparison_hit_ids)
 
     @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.35, KNOWLEDGE_RETRIEVAL_TOP_K=6)
     @patch("apps.knowledge.retrieval.create_embeddings")

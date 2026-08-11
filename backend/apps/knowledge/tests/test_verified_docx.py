@@ -11,6 +11,8 @@ from docx import Document as WordDocument
 from apps.knowledge.models import DocumentChunk, DocumentVersion
 from apps.knowledge.verified import import_verified_docx
 
+from .docx_fixtures import strip_unsupported_package_parts
+
 
 class VerifiedDocxTests(TestCase):
     def setUp(self):
@@ -35,6 +37,7 @@ class VerifiedDocxTests(TestCase):
         table.cell(2, 1).text = f"{working_time} دقیقه"
         document.add_paragraph("این متن و جدول به صورت دستی با دیتاشیت اصلی بررسی شده‌اند.")
         document.save(self.path)
+        strip_unsupported_package_parts(self.path)
 
     @patch("apps.knowledge.ingestion.create_embeddings")
     def test_imports_verified_docx_deduplicates_and_activates_new_version(self, embeddings):

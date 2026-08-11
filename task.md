@@ -821,7 +821,13 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [x] Audit Megatite Pigment against its brochure, correct the maximum dosage to 2% by weight (20 g/kg), restore the B-then-A mixing order, and build a strict-import-safe reviewed DOCX.
 - [x] Add Pigment/رنگدانه alias handling and retrieval isolation while allowing explicit compatibility questions with T, C, or LT.
 - [x] Recognize bare LT grade codes (LTL, LTN, LTM, LTC, LTB) as the LT family and route bare Pigment/پیگمنت/رنگدانه questions deterministically.
-- [ ] Import reviewed CT, LT, and Pigment knowledge on production, run their acceptance suites, then deactivate only their exact matching legacy sources.
+- [x] Import reviewed CT, LT, and Pigment knowledge on production and confirm the corrected LT-grade and Pigment answers.
+- [ ] Deactivate only the exact matching legacy CT, LT, and Pigment sources after guarded production inventory checks.
+- [x] Audit the eight supplemental S, C, SF, G, T, SP, HC3000, and LT editorial DOCX files; reject duplicate/editorial content and conflicting technical claims.
+- [x] Build strict-import-safe application supplements for S, C, and SF that add only nonnumeric, nonconflicting guidance with façade, overhead, UV, and substrate safety limits.
+- [x] Rebuild HC3000 from its primary technical datasheet with verified cure/property tables and explicit structural-design boundaries; skip the mislabeled LT11 file because it contains no new LT product or facts.
+- [x] Add canonical HC3000 aliases and retrieval isolation so HC3000 cannot leak into Megatite C or the conflicting legacy HC catalog record.
+- [ ] Import the reviewed S/C/SF supplements and HC3000 document on production, verify their acceptance questions, then deactivate only the exact legacy HC3000 source.
 - [x] Render the assistant's safe bold and list formatting correctly in the Persian chat UI without interpreting customer Markdown or raw HTML.
 
 ### Files/architecture
