@@ -8,7 +8,8 @@ from django.test import SimpleTestCase, override_settings
 from pypdf import PdfWriter
 
 from apps.knowledge.vision_extraction import (
-    _numeric_fact_signatures,
+    AUTOMATED_NUMERIC_REVIEW_MESSAGE,
+    _numeric_fact_difference,
     extract_pdf_with_vision,
 )
 
@@ -53,8 +54,31 @@ class VisionExtractionTests(SimpleTestCase):
         }
 
         self.assertEqual(
-            _numeric_fact_signatures([{**common, "value": "60*10−6"}]),
-            _numeric_fact_signatures([{**common, "value": "60*10-6"}]),
+            _numeric_fact_difference(
+                [{**common, "value": "60*10−6"}],
+                [{**common, "value": "60*10-6"}],
+            ),
+            {"first_pass_only": [], "final_pass_only": []},
+        )
+
+    def test_standard_label_and_unit_reassignment_is_equivalent(self):
+        context = "Advantages: Complies with ASTM C881 standard (except for gel time)"
+        first = {
+            "label": "Standard",
+            "value": "C881",
+            "unit": "ASTM",
+            "context": context,
+        }
+        final = {
+            "label": "ASTM",
+            "value": "C881",
+            "unit": "",
+            "context": context,
+        }
+
+        self.assertEqual(
+            _numeric_fact_difference([first], [final]),
+            {"first_pass_only": [], "final_pass_only": []},
         )
 
     @patch("apps.knowledge.vision_extraction.OpenAI")
@@ -125,6 +149,8 @@ class VisionExtractionTests(SimpleTestCase):
         client.responses.create.reset_mock()
         reused = extract_pdf_with_vision(source, output_dir=self.root / "output")
         self.assertTrue(reused.reused)
+        self.assertEqual(reused.input_tokens, 0)
+        self.assertEqual(reused.output_tokens, 0)
         client.responses.create.assert_not_called()
 
     @patch("apps.knowledge.vision_extraction.OpenAI")
@@ -187,19 +213,82 @@ class VisionExtractionTests(SimpleTestCase):
             {
                 "first_pass_only": [
                     {
-                        "label": "حداقلزمانپختاولیه",
+                        "label": "حداقل زمان پخت اولیه",
                         "value": "12",
                         "unit": "ساعت",
-                        "context": "دردمای25درجهسانتیگراد",
+                        "context": "در دمای 25 درجه سانتی‌گراد",
                     }
                 ],
                 "final_pass_only": [
                     {
-                        "label": "حداقلزمانپختاولیه",
+                        "label": "حداقل زمان پخت اولیه",
                         "value": "18",
                         "unit": "ساعت",
-                        "context": "دردمای25درجهسانتیگراد",
+                        "context": "در دمای 25 درجه سانتی‌گراد",
                     }
                 ],
             },
         )
+
+    @patch("apps.knowledge.vision_extraction.OpenAI")
+    def test_reuse_applies_new_verifier_without_another_api_call(self, openai_class):
+        source = self.create_pdf(page_count=1)
+        context = "Advantages: Complies with ASTM C881 standard (except for gel time)"
+        first = {
+            "document_title": "Megatite HC",
+            "product_names": ["Megatite HC"],
+            "pages": [
+                {
+                    "page_number": 1,
+                    "content": "Megatite HC is a two-component structural adhesive complying with ASTM C881.",
+                    "numeric_facts": [
+                        {
+                            "label": "Standard",
+                            "value": "C881",
+                            "unit": "ASTM",
+                            "context": context,
+                        }
+                    ],
+                    "uncertain_items": [],
+                }
+            ],
+        }
+        final = {
+            **first,
+            "pages": [
+                {
+                    **first["pages"][0],
+                    "numeric_facts": [
+                        {
+                            "label": "ASTM",
+                            "value": "C881",
+                            "unit": "",
+                            "context": context,
+                        }
+                    ],
+                }
+            ],
+        }
+        client = Mock()
+        client.responses.create.side_effect = [vision_response(first), vision_response(final)]
+        openai_class.return_value = client
+        result = extract_pdf_with_vision(source, output_dir=self.root / "output")
+
+        report = json.loads(result.report_path.read_text(encoding="utf-8"))
+        report.pop("verifier_version")
+        report["pages"][0]["trusted"] = False
+        report["pages"][0]["review_items"] = [AUTOMATED_NUMERIC_REVIEW_MESSAGE]
+        result.report_path.write_text(
+            json.dumps(report, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        result.manifest_path.unlink()
+        client.responses.create.reset_mock()
+
+        reused = extract_pdf_with_vision(source, output_dir=self.root / "output")
+
+        self.assertTrue(reused.reused)
+        self.assertEqual(reused.trusted_page_count, 1)
+        self.assertEqual(reused.review_page_count, 0)
+        self.assertTrue(reused.manifest_path.is_file())
+        client.responses.create.assert_not_called()

@@ -1,5 +1,4 @@
 import base64
-from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
@@ -57,6 +56,11 @@ class VisionExtractionError(RuntimeError):
 
 
 VISION_REPORT_SCHEMA_VERSION = 2
+VISION_VERIFIER_VERSION = 2
+AUTOMATED_NUMERIC_REVIEW_MESSAGE = (
+    "Automated two-pass check found different technical numeric facts; review this page."
+)
+FACT_FIELDS = ("label", "value", "unit", "context")
 
 
 def _response_schema():
@@ -278,28 +282,107 @@ def _normalize_fact_part(value):
     return normalized
 
 
-def _numeric_fact_signatures(facts):
-    return Counter(
-        tuple(
-            _normalize_fact_part(fact[field])
-            for field in ("label", "value", "unit", "context")
-        )
-        for fact in facts
+def _normalized_fact(fact):
+    return {field: _normalize_fact_part(fact[field]) for field in FACT_FIELDS}
+
+
+def _labels_are_compatible(first, final):
+    if first["label"] == final["label"]:
+        return True
+    if first["context"] != final["context"]:
+        return False
+    return all(
+        not label or label in first["context"]
+        for label in (first["label"], final["label"])
     )
 
 
-def _format_signature_difference(first, final):
-    first_only = sorted((first - final).elements())
-    final_only = sorted((final - first).elements())
+def _units_are_compatible(first, final):
+    if first["unit"] == final["unit"]:
+        return True
+    if first["unit"] and final["unit"]:
+        return False
+
+    nonempty_unit = first["unit"] or final["unit"]
+    fact_without_unit = final if first["unit"] else first
+    return bool(
+        nonempty_unit
+        and (
+            nonempty_unit in fact_without_unit["label"]
+            or nonempty_unit in fact_without_unit["context"]
+        )
+    )
+
+
+def _facts_are_equivalent(first, final):
+    normalized_first = _normalized_fact(first)
+    normalized_final = _normalized_fact(final)
+    return (
+        normalized_first["value"] == normalized_final["value"]
+        and normalized_first["context"] == normalized_final["context"]
+        and _labels_are_compatible(normalized_first, normalized_final)
+        and _units_are_compatible(normalized_first, normalized_final)
+    )
+
+
+def _numeric_fact_difference(first_facts, final_facts):
+    unmatched_final = list(final_facts)
+    first_only = []
+    for first_fact in first_facts:
+        match_index = next(
+            (
+                index
+                for index, final_fact in enumerate(unmatched_final)
+                if _facts_are_equivalent(first_fact, final_fact)
+            ),
+            None,
+        )
+        if match_index is None:
+            first_only.append(first_fact)
+        else:
+            unmatched_final.pop(match_index)
+
     return {
-        "first_pass_only": [
-            dict(zip(("label", "value", "unit", "context"), signature, strict=True))
-            for signature in first_only
-        ],
-        "final_pass_only": [
-            dict(zip(("label", "value", "unit", "context"), signature, strict=True))
-            for signature in final_only
-        ],
+        "first_pass_only": first_only,
+        "final_pass_only": unmatched_final,
+    }
+
+
+def _has_numeric_fact_difference(difference):
+    return bool(difference["first_pass_only"] or difference["final_pass_only"])
+
+
+def _evaluate_report_page(
+    *,
+    page_number,
+    content,
+    first_pass_numeric_facts,
+    numeric_facts,
+    uncertain_items,
+    passes,
+):
+    numeric_fact_difference = {
+        "first_pass_only": [],
+        "final_pass_only": [],
+    }
+    review_items = list(uncertain_items)
+    if passes == 2:
+        numeric_fact_difference = _numeric_fact_difference(
+            first_pass_numeric_facts,
+            numeric_facts,
+        )
+        if _has_numeric_fact_difference(numeric_fact_difference):
+            review_items.append(AUTOMATED_NUMERIC_REVIEW_MESSAGE)
+
+    return {
+        "page_number": page_number,
+        "content": content,
+        "first_pass_numeric_facts": first_pass_numeric_facts,
+        "numeric_facts": numeric_facts,
+        "uncertain_items": list(uncertain_items),
+        "trusted": len(content) >= 40 and not review_items,
+        "review_items": review_items,
+        "numeric_fact_difference": numeric_fact_difference,
     }
 
 
@@ -318,6 +401,77 @@ def _atomic_json_write(path, payload):
     temporary.replace(path)
 
 
+def _write_manifest_from_report(report, manifest_path):
+    manifest_entries = [
+        {"page_number": page["page_number"], "content": page["content"]}
+        for page in report["pages"]
+        if page["trusted"]
+    ]
+    if not manifest_entries:
+        if manifest_path.exists():
+            manifest_path.unlink()
+        return
+
+    passes = report["extraction_pass_count"]
+    manifest = {
+        "schema_version": 1,
+        "source_key": (
+            f"verified:vision:{normalize_source_key(Path(report['source_filename']).stem)}"
+        ),
+        "title": f"{report['document_title']} — متن بازخوانی‌شده تصویری",
+        "source_filename": report["source_filename"],
+        "source_sha256": report["source_sha256"],
+        "source_page_count": report["source_page_count"],
+        "entries": manifest_entries,
+        "extraction": {
+            "method": "openai_pdf_vision_two_pass" if passes == 2 else "openai_pdf_vision",
+            "model": report["extraction_model"],
+            "created_at": report["created_at"],
+            "trusted_pages": [entry["page_number"] for entry in manifest_entries],
+        },
+    }
+    _atomic_json_write(manifest_path, manifest)
+
+
+def _reverify_report(report):
+    passes = report.get("extraction_pass_count")
+    if passes not in {1, 2}:
+        raise VisionExtractionError("The existing vision report has invalid pass metadata.")
+
+    refreshed_pages = []
+    for page in report.get("pages", []):
+        first_pass_numeric_facts = page.get("first_pass_numeric_facts")
+        numeric_facts = page.get("numeric_facts")
+        if not isinstance(first_pass_numeric_facts, list) or not isinstance(
+            numeric_facts,
+            list,
+        ):
+            raise VisionExtractionError(
+                "The existing vision report cannot be checked by this verifier."
+            )
+        uncertain_items = page.get("uncertain_items")
+        if uncertain_items is None:
+            uncertain_items = [
+                item
+                for item in page.get("review_items", [])
+                if item != AUTOMATED_NUMERIC_REVIEW_MESSAGE
+            ]
+        refreshed_pages.append(
+            _evaluate_report_page(
+                page_number=page["page_number"],
+                content=page["content"],
+                first_pass_numeric_facts=first_pass_numeric_facts,
+                numeric_facts=numeric_facts,
+                uncertain_items=uncertain_items,
+                passes=passes,
+            )
+        )
+
+    report["pages"] = refreshed_pages
+    report["verifier_version"] = VISION_VERIFIER_VERSION
+    return report
+
+
 def _result_from_report(source, report_path, manifest_path, report, *, reused):
     pages = report["pages"]
     trusted_page_count = sum(1 for page in pages if page["trusted"])
@@ -328,8 +482,12 @@ def _result_from_report(source, report_path, manifest_path, report, *, reused):
         page_count=report["source_page_count"],
         trusted_page_count=trusted_page_count,
         review_page_count=len(pages) - trusted_page_count,
-        input_tokens=sum(item["input_tokens"] for item in report["api_passes"]),
-        output_tokens=sum(item["output_tokens"] for item in report["api_passes"]),
+        input_tokens=(
+            0 if reused else sum(item["input_tokens"] for item in report["api_passes"])
+        ),
+        output_tokens=(
+            0 if reused else sum(item["output_tokens"] for item in report["api_passes"])
+        ),
         reused=reused,
     )
 
@@ -357,6 +515,10 @@ def extract_pdf_with_vision(path, *, output_dir, passes=2, model=None, force=Fal
             raise VisionExtractionError(
                 "The existing vision report uses an older verifier; rerun with --force."
             )
+        if report.get("verifier_version") != VISION_VERIFIER_VERSION:
+            report = _reverify_report(report)
+            _atomic_json_write(report_path, report)
+            _write_manifest_from_report(report, manifest_path)
         return _result_from_report(source, report_path, manifest_path, report, reused=True)
 
     extraction_model = model or settings.OPENAI_DOCUMENT_EXTRACTION_MODEL
@@ -388,47 +550,24 @@ def extract_pdf_with_vision(path, *, output_dir, passes=2, model=None, force=Fal
 
     first_by_page = {page["page_number"]: page for page in first_pass["pages"]}
     report_pages = []
-    manifest_entries = []
     for page in final_pass["pages"]:
-        review_items = list(page["uncertain_items"])
-        numeric_fact_difference = {
-            "first_pass_only": [],
-            "final_pass_only": [],
-        }
-        if passes == 2:
-            first_numbers = _numeric_fact_signatures(
-                first_by_page[page["page_number"]]["numeric_facts"]
+        report_pages.append(
+            _evaluate_report_page(
+                page_number=page["page_number"],
+                content=page["content"],
+                first_pass_numeric_facts=first_by_page[page["page_number"]][
+                    "numeric_facts"
+                ],
+                numeric_facts=page["numeric_facts"],
+                uncertain_items=page["uncertain_items"],
+                passes=passes,
             )
-            final_numbers = _numeric_fact_signatures(page["numeric_facts"])
-            if first_numbers != final_numbers:
-                numeric_fact_difference = _format_signature_difference(
-                    first_numbers,
-                    final_numbers,
-                )
-                review_items.append(
-                    "Automated two-pass check found different technical numeric facts; "
-                    "review this page."
-                )
-
-        trusted = len(page["content"]) >= 40 and not review_items
-        report_page = {
-            "page_number": page["page_number"],
-            "content": page["content"],
-            "first_pass_numeric_facts": first_by_page[page["page_number"]]["numeric_facts"],
-            "numeric_facts": page["numeric_facts"],
-            "trusted": trusted,
-            "review_items": review_items,
-            "numeric_fact_difference": numeric_fact_difference,
-        }
-        report_pages.append(report_page)
-        if trusted:
-            manifest_entries.append(
-                {"page_number": page["page_number"], "content": page["content"]}
-            )
+        )
 
     created_at = datetime.now(timezone.utc).isoformat()
     report = {
         "schema_version": VISION_REPORT_SCHEMA_VERSION,
+        "verifier_version": VISION_VERIFIER_VERSION,
         "source_filename": source.name,
         "source_sha256": source_checksum,
         "source_page_count": page_count,
@@ -441,25 +580,6 @@ def extract_pdf_with_vision(path, *, output_dir, passes=2, model=None, force=Fal
         "pages": report_pages,
     }
     _atomic_json_write(report_path, report)
-
-    if manifest_entries:
-        manifest = {
-            "schema_version": 1,
-            "source_key": f"verified:vision:{normalize_source_key(source.stem)}",
-            "title": f"{report['document_title']} — متن بازخوانی‌شده تصویری",
-            "source_filename": source.name,
-            "source_sha256": source_checksum,
-            "source_page_count": page_count,
-            "entries": manifest_entries,
-            "extraction": {
-                "method": "openai_pdf_vision_two_pass" if passes == 2 else "openai_pdf_vision",
-                "model": extraction_model,
-                "created_at": created_at,
-                "trusted_pages": [entry["page_number"] for entry in manifest_entries],
-            },
-        }
-        _atomic_json_write(manifest_path, manifest)
-    elif manifest_path.exists():
-        manifest_path.unlink()
+    _write_manifest_from_report(report, manifest_path)
 
     return _result_from_report(source, report_path, manifest_path, report, reused=False)
