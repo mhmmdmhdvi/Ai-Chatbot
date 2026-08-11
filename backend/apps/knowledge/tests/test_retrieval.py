@@ -49,6 +49,20 @@ class KnowledgeRetrievalTests(TestCase):
         self.assertEqual(extract_product_codes("مگاتایت اس اف چه کاربردی دارد؟"), {"sf"})
         self.assertEqual(extract_product_codes("مگاتایت اس چیست؟"), {"s"})
 
+    def test_sf_aliases_do_not_also_extract_s(self):
+        queries = (
+            "Megatite S.F چه کاربردی دارد؟",
+            "Megatite S-F چه کاربردی دارد؟",
+            "مگاتایت اس‌اف چه کاربردی دارد؟",
+            "مگاتایت اس-اف چه کاربردی دارد؟",
+            "مگاتایت اساف چه کاربردی دارد؟",
+            "چسب اس اف چه کاربردی دارد؟",
+        )
+
+        for query in queries:
+            with self.subTest(query=query):
+                self.assertEqual(extract_product_codes(query), {"sf"})
+
     @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.5, KNOWLEDGE_RETRIEVAL_TOP_K=3)
     @patch("apps.knowledge.retrieval.create_embeddings")
     def test_retrieves_active_chunk_and_builds_traceable_context(self, embeddings):

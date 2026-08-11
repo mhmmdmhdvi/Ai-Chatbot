@@ -15,6 +15,8 @@ class KnowledgeRetrievalError(RuntimeError):
 
 
 PRODUCT_CODES = frozenset({"s", "c", "g", "t", "sf", "sp", "lt", "hc", "ct", "pigment"})
+ASCII_SF_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])s[\s._-]+f(?![a-z0-9])")
+PERSIAN_SF_ALIAS_PATTERN = re.compile(r"(?<!\w)اس[\s\u200c._-]*اف(?!\w)")
 PERSIAN_PRODUCT_CODE_ALIASES = (
     ("اس اف", "sf"),
     ("اس پی", "sp"),
@@ -56,6 +58,11 @@ def has_active_knowledge():
 
 def extract_product_codes(query):
     normalized = normalize_persian_text(query).casefold()
+    if "megatite" in normalized:
+        normalized = ASCII_SF_ALIAS_PATTERN.sub(" sf ", normalized)
+    if "مگاتایت" in normalized or "چسب" in normalized:
+        normalized = PERSIAN_SF_ALIAS_PATTERN.sub(" sf ", normalized)
+
     ascii_tokens = set(re.findall(r"[a-z0-9]+", normalized))
     codes = PRODUCT_CODES.intersection(ascii_tokens)
 
