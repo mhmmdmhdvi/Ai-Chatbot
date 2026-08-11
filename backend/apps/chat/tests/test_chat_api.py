@@ -114,6 +114,38 @@ class ChatApiTests(TestCase):
 
         self.assertEqual(build_knowledge_query(conversation, current), current.content)
 
+    def test_lt_grade_and_bare_pigment_replace_stale_product_context(self):
+        cases = (
+            (
+                "Megatite CT چه کاربردی دارد؟",
+                "زمان پخت اولیه LTM و LTC در دمای ۲۵ درجه چقدر است؟",
+            ),
+            (
+                "Megatite LT چه کاربردی دارد؟",
+                "ترتیب افزودن پیگمنت به اجزای A و B چیست؟",
+            ),
+        )
+
+        for previous_content, current_content in cases:
+            with self.subTest(current=current_content):
+                conversation_id = self.create_session().data["id"]
+                conversation = Conversation.objects.get(pk=conversation_id)
+                Message.objects.create(
+                    conversation=conversation,
+                    role=Message.Role.CUSTOMER,
+                    content=previous_content,
+                )
+                current = Message.objects.create(
+                    conversation=conversation,
+                    role=Message.Role.CUSTOMER,
+                    content=current_content,
+                )
+
+                self.assertEqual(
+                    build_knowledge_query(conversation, current),
+                    current.content,
+                )
+
     def create_session(self, name="محمد رضایی", phone_number="09121234567"):
         return self.client.post(
             reverse("chat:session-create"),

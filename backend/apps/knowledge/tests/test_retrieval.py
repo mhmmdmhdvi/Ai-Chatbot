@@ -147,8 +147,36 @@ class KnowledgeRetrievalTests(TestCase):
                 with self.subTest(query=query):
                     self.assertEqual(extract_product_codes(query), {expected_code})
 
+    def test_lt_grade_aliases_route_to_the_lt_family(self):
+        queries = (
+            "زمان پخت اولیه LTL چقدر است؟",
+            "زمان پخت اولیه LTN چقدر است؟",
+            "زمان پخت اولیه LTM و LTC در دمای ۲۵ درجه چقدر است؟",
+            "L.T.B چه میزان زردی دارد؟",
+            "L-T-M چه کاربردی دارد؟",
+            "L T C چه زمانی پخت اولیه دارد؟",
+            "مگاتایت ال تی سی چه زمانی پخت اولیه دارد؟",
+            "ال‌تی‌ام چه میزان واکنش‌پذیری دارد؟",
+        )
+
+        for query in queries:
+            with self.subTest(query=query):
+                self.assertEqual(extract_product_codes(query), {"lt"})
+
+    def test_ordinary_persian_words_do_not_route_to_lt_or_ct(self):
+        self.assertEqual(extract_product_codes("التیام زخم چقدر زمان می‌برد؟"), set())
+        self.assertEqual(extract_product_codes("منچستر سیتی بازی دارد؟"), set())
+
     def test_pigment_aliases_are_canonicalized(self):
         queries = (
+            "Pigments",
+            "پیگمنت چیست؟",
+            "پیگمنت‌های مگاتایت",
+            "پیگمنتهای مگاتایت",
+            "رنگدانه چطور مصرف می‌شود؟",
+            "رنگ‌دانه چطور مصرف می‌شود؟",
+            "رنگدانه‌های مگاتایت",
+            "رنگدانههای مگاتایت",
             "Megatite Pigment",
             "Megatite Pigments",
             "مگاتایت پیگمنت",
@@ -319,6 +347,11 @@ class KnowledgeRetrievalTests(TestCase):
             ("Megatite T", t_chunk, {ct_chunk.id, lt_chunk.id}),
             ("Megatite C-T", ct_chunk, {t_chunk.id, lt_chunk.id}),
             ("مگاتایت ال‌تی", lt_chunk, {t_chunk.id, ct_chunk.id}),
+            (
+                "زمان پخت اولیه LTM و LTC در دمای ۲۵ درجه چقدر است؟",
+                lt_chunk,
+                {t_chunk.id, ct_chunk.id},
+            ),
         )
         for query, expected_chunk, excluded_ids in cases:
             with self.subTest(query=query):
@@ -361,7 +394,7 @@ class KnowledgeRetrievalTests(TestCase):
         embeddings.return_value = [[1.0] + [0.0] * 1023]
 
         pigment_hit_ids = [
-            hit.chunk_id for hit in retrieve_knowledge("رنگ‌دانه مگاتایت چطور مصرف می‌شود؟")
+            hit.chunk_id for hit in retrieve_knowledge("ترتیب افزودن پیگمنت به اجزای A و B چیست؟")
         ]
         self.assertEqual(pigment_hit_ids[0], pigment_chunk.id)
         self.assertIn(general_chunk.id, pigment_hit_ids)

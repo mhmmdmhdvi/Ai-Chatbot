@@ -22,11 +22,17 @@ ASCII_SP_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])s[\s._-]+p(?![a-z0-9])")
 PERSIAN_SP_ALIAS_PATTERN = re.compile(r"(?<!\w)اس[\s\u200c._-]*پی(?!\w)")
 ASCII_CT_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])c[\s._-]+t(?![a-z0-9])")
 ASCII_LT_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])l[\s._-]+t(?![a-z0-9])")
+ASCII_LT_GRADE_ALIAS_PATTERN = re.compile(
+    r"(?<![a-z0-9])l[\s._-]*t[\s._-]*[lnmcb](?![a-z0-9])"
+)
 PERSIAN_CT_ALIAS_PATTERN = re.compile(r"(?<!\w)سی[\s\u200c._-]*تی(?!\w)")
 PERSIAN_LT_ALIAS_PATTERN = re.compile(r"(?<!\w)ال[\s\u200c._-]*تی(?!\w)")
+PERSIAN_LT_GRADE_ALIAS_PATTERN = re.compile(
+    r"(?<!\w)ال[\s\u200c._-]+تی[\s\u200c._-]+(?:ال|ان|ام|سی|بی)(?!\w)"
+)
 ASCII_PIGMENT_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])pigments?(?![a-z0-9])")
 PERSIAN_PIGMENT_ALIAS_PATTERN = re.compile(
-    r"(?<!\w)(?:پیگمنت|رنگ[\s\u200c._-]*دانه)(?:\s*ها)?(?!\w)"
+    r"(?<!\w)(?:پیگمنت|رنگ[\s\u200c._-]*دانه)(?:\s*های?)?(?!\w)"
 )
 MEASUREMENT_CODE_PATTERN = re.compile(
     r"(?<![a-z0-9])\d+(?:[.,]\d+)?\s*°?\s*(?:g|c)(?![a-z0-9])"
@@ -83,6 +89,13 @@ def extract_product_codes(query):
     has_product_context = (
         "megatite" in normalized or "مگاتایت" in normalized or "چسب" in normalized
     )
+    # LT grade codes and Pigment terms are distinctive enough to recognize
+    # without a brand prefix. Generic compound aliases remain context-gated so
+    # ordinary Persian words such as `سیتی` are not mistaken for products.
+    normalized = ASCII_LT_GRADE_ALIAS_PATTERN.sub(" lt ", normalized)
+    normalized = PERSIAN_LT_GRADE_ALIAS_PATTERN.sub(" lt ", normalized)
+    normalized = ASCII_PIGMENT_ALIAS_PATTERN.sub(" pigment ", normalized)
+    normalized = PERSIAN_PIGMENT_ALIAS_PATTERN.sub(" pigment ", normalized)
     if has_product_context:
         normalized = ASCII_SF_ALIAS_PATTERN.sub(" sf ", normalized)
         normalized = PERSIAN_SF_ALIAS_PATTERN.sub(" sf ", normalized)
@@ -92,8 +105,6 @@ def extract_product_codes(query):
         normalized = ASCII_LT_ALIAS_PATTERN.sub(" lt ", normalized)
         normalized = PERSIAN_CT_ALIAS_PATTERN.sub(" ct ", normalized)
         normalized = PERSIAN_LT_ALIAS_PATTERN.sub(" lt ", normalized)
-        normalized = ASCII_PIGMENT_ALIAS_PATTERN.sub(" pigment ", normalized)
-        normalized = PERSIAN_PIGMENT_ALIAS_PATTERN.sub(" pigment ", normalized)
 
     code_source = MEASUREMENT_CODE_PATTERN.sub(" ", normalized)
     ascii_tokens = set(re.findall(r"[a-z0-9]+", code_source))

@@ -820,6 +820,7 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [x] Audit Megatite CT and LT against their brochures, correct their transcriptions and time tables, and build strict-import-safe reviewed DOCX files with explicit cross-product and engineering boundaries.
 - [x] Audit Megatite Pigment against its brochure, correct the maximum dosage to 2% by weight (20 g/kg), restore the B-then-A mixing order, and build a strict-import-safe reviewed DOCX.
 - [x] Add Pigment/رنگدانه alias handling and retrieval isolation while allowing explicit compatibility questions with T, C, or LT.
+- [x] Recognize bare LT grade codes (LTL, LTN, LTM, LTC, LTB) as the LT family and route bare Pigment/پیگمنت/رنگدانه questions deterministically.
 - [ ] Import reviewed CT, LT, and Pigment knowledge on production, run their acceptance suites, then deactivate only their exact matching legacy sources.
 - [x] Render the assistant's safe bold and list formatting correctly in the Persian chat UI without interpreting customer Markdown or raw HTML.
 
