@@ -70,6 +70,19 @@ class KnowledgeRetrievalTests(TestCase):
     def test_ignores_persian_diacritics_in_product_aliases(self):
         self.assertEqual(extract_product_codes("مگاتایت اِس چیست؟"), {"s"})
 
+    def test_extracts_persian_g_after_adhesive_context(self):
+        self.assertEqual(extract_product_codes("چسب جی چه کاربردی دارد؟"), {"g"})
+
+    def test_does_not_treat_gram_or_temperature_units_as_product_codes(self):
+        self.assertEqual(
+            extract_product_codes("۱۰۰ g چسب Megatite C در ۲۵°C"),
+            {"c"},
+        )
+        self.assertEqual(
+            extract_product_codes("Megatite G در ۲۵°C"),
+            {"g"},
+        )
+
     @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.5, KNOWLEDGE_RETRIEVAL_TOP_K=3)
     @patch("apps.knowledge.retrieval.create_embeddings")
     def test_retrieves_active_chunk_and_builds_traceable_context(self, embeddings):

@@ -18,6 +18,9 @@ class KnowledgeRetrievalError(RuntimeError):
 PRODUCT_CODES = frozenset({"s", "c", "g", "t", "sf", "sp", "lt", "hc", "ct", "pigment"})
 ASCII_SF_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])s[\s._-]+f(?![a-z0-9])")
 PERSIAN_SF_ALIAS_PATTERN = re.compile(r"(?<!\w)اس[\s\u200c._-]*اف(?!\w)")
+MEASUREMENT_CODE_PATTERN = re.compile(
+    r"(?<![a-z0-9])\d+(?:[.,]\d+)?\s*°?\s*(?:g|c)(?![a-z0-9])"
+)
 PERSIAN_PRODUCT_CODE_ALIASES = (
     ("اس اف", "sf"),
     ("اس پی", "sp"),
@@ -71,10 +74,11 @@ def extract_product_codes(query):
         normalized = ASCII_SF_ALIAS_PATTERN.sub(" sf ", normalized)
         normalized = PERSIAN_SF_ALIAS_PATTERN.sub(" sf ", normalized)
 
-    ascii_tokens = set(re.findall(r"[a-z0-9]+", normalized))
+    code_source = MEASUREMENT_CODE_PATTERN.sub(" ", normalized)
+    ascii_tokens = set(re.findall(r"[a-z0-9]+", code_source))
     codes = PRODUCT_CODES.intersection(ascii_tokens)
 
-    if "مگاتایت" in normalized or "megatite" in normalized:
+    if has_product_context:
         padded = f" {normalized} "
         for phrase, code in PERSIAN_PRODUCT_CODE_ALIASES:
             if re.search(rf"(?<!\S){re.escape(phrase)}(?!\S)", padded):
