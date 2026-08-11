@@ -195,6 +195,12 @@ OPENAI_DOCUMENT_MAX_OUTPUT_TOKENS = env_int(
     minimum=2_000,
     maximum=100_000,
 )
+OPENAI_DOCUMENT_BATCH_PAGES = env_int(
+    "OPENAI_DOCUMENT_BATCH_PAGES",
+    3,
+    minimum=1,
+    maximum=10,
+)
 OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-large").strip()
 OPENAI_EMBEDDING_DIMENSIONS = env_int(
     "OPENAI_EMBEDDING_DIMENSIONS",

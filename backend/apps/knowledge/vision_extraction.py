@@ -1,13 +1,14 @@
 import base64
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from io import BytesIO
 import json
 from pathlib import Path
 import re
 
 from django.conf import settings
 from openai import OpenAI, OpenAIError
-from pypdf import PdfReader
+from pypdf import PdfReader, PdfWriter
 from pypdf.errors import PdfReadError
 
 from .ingestion import file_sha256, validate_pdf_source
@@ -57,6 +58,7 @@ class VisionExtractionError(RuntimeError):
 
 VISION_REPORT_SCHEMA_VERSION = 2
 VISION_VERIFIER_VERSION = 2
+VISION_WORK_SCHEMA_VERSION = 1
 AUTOMATED_NUMERIC_REVIEW_MESSAGE = (
     "Automated two-pass check found different technical numeric facts; review this page."
 )
@@ -128,6 +130,99 @@ def _page_count(source):
         raise
     except (PdfReadError, OSError, ValueError) as exc:
         raise VisionExtractionError("The PDF could not be opened or is malformed.") from exc
+
+
+def _pdf_batches(source, *, batch_pages):
+    try:
+        reader = PdfReader(source, strict=False)
+        if reader.is_encrypted and reader.decrypt("") == 0:
+            raise VisionExtractionError("The PDF is encrypted and requires a password.")
+        total_pages = len(reader.pages)
+        for start_index in range(0, total_pages, batch_pages):
+            end_index = min(start_index + batch_pages, total_pages)
+            writer = PdfWriter()
+            for page_index in range(start_index, end_index):
+                writer.add_page(reader.pages[page_index])
+            destination = BytesIO()
+            writer.write(destination)
+            yield {
+                "start_page": start_index + 1,
+                "end_page": end_index,
+                "page_count": end_index - start_index,
+                "pdf_bytes": destination.getvalue(),
+            }
+    except VisionExtractionError:
+        raise
+    except (PdfReadError, OSError, ValueError) as exc:
+        raise VisionExtractionError("The PDF could not be split into safe batches.") from exc
+
+
+def _batch_key(batch):
+    return f"{batch['start_page']}-{batch['end_page']}"
+
+
+def _offset_payload_pages(payload, *, offset):
+    return {
+        **payload,
+        "pages": [
+            {**page, "page_number": page["page_number"] + offset}
+            for page in payload["pages"]
+        ],
+    }
+
+
+def _new_work_checkpoint(
+    *,
+    source,
+    source_checksum,
+    page_count,
+    model,
+    passes,
+    batch_pages,
+):
+    return {
+        "schema_version": VISION_WORK_SCHEMA_VERSION,
+        "source_filename": source.name,
+        "source_sha256": source_checksum,
+        "source_page_count": page_count,
+        "extraction_model": model,
+        "extraction_pass_count": passes,
+        "batch_pages": batch_pages,
+        "batches": {},
+    }
+
+
+def _load_work_checkpoint(
+    path,
+    *,
+    source,
+    source_checksum,
+    page_count,
+    model,
+    passes,
+    batch_pages,
+):
+    try:
+        checkpoint = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise VisionExtractionError("The saved extraction checkpoint is invalid.") from exc
+
+    expected = {
+        "schema_version": VISION_WORK_SCHEMA_VERSION,
+        "source_filename": source.name,
+        "source_sha256": source_checksum,
+        "source_page_count": page_count,
+        "extraction_model": model,
+        "extraction_pass_count": passes,
+        "batch_pages": batch_pages,
+    }
+    if any(checkpoint.get(key) != value for key, value in expected.items()):
+        raise VisionExtractionError(
+            "The saved extraction checkpoint uses different settings; rerun with --force."
+        )
+    if not isinstance(checkpoint.get("batches"), dict):
+        raise VisionExtractionError("The saved extraction checkpoint has invalid batches.")
+    return checkpoint
 
 
 def _normalize_payload(payload, *, expected_page_count):
@@ -207,8 +302,16 @@ def _normalize_payload(payload, *, expected_page_count):
     }
 
 
-def _request_transcription(client, source, *, page_count, model, draft=None):
-    encoded_pdf = base64.b64encode(source.read_bytes()).decode("ascii")
+def _request_transcription(
+    client,
+    pdf_bytes,
+    *,
+    filename,
+    page_count,
+    model,
+    draft=None,
+):
+    encoded_pdf = base64.b64encode(pdf_bytes).decode("ascii")
     if draft is None:
         task = (
             f"Transcribe this {page_count}-page technical PDF completely. "
@@ -234,7 +337,7 @@ def _request_transcription(client, source, *, page_count, model, draft=None):
                     "content": [
                         {
                             "type": "input_file",
-                            "filename": source.name,
+                            "filename": filename,
                             "file_data": f"data:application/pdf;base64,{encoded_pdf}",
                             "detail": "high",
                         },
@@ -247,7 +350,9 @@ def _request_transcription(client, source, *, page_count, model, draft=None):
             store=False,
         )
     except OpenAIError as exc:
-        raise VisionExtractionError("OpenAI could not extract the PDF.") from exc
+        raise VisionExtractionError(
+            f"OpenAI could not extract the PDF batch ({type(exc).__name__})."
+        ) from exc
 
     if getattr(response, "status", "completed") != "completed":
         reason = getattr(getattr(response, "incomplete_details", None), "reason", "unknown")
@@ -492,9 +597,23 @@ def _result_from_report(source, report_path, manifest_path, report, *, reused):
     )
 
 
-def extract_pdf_with_vision(path, *, output_dir, passes=2, model=None, force=False):
+def extract_pdf_with_vision(
+    path,
+    *,
+    output_dir,
+    passes=2,
+    model=None,
+    batch_pages=None,
+    force=False,
+    progress=None,
+):
     if passes not in {1, 2}:
         raise ValueError("passes must be 1 or 2")
+    extraction_batch_pages = (
+        settings.OPENAI_DOCUMENT_BATCH_PAGES if batch_pages is None else batch_pages
+    )
+    if not 1 <= extraction_batch_pages <= 10:
+        raise ValueError("batch_pages must be between 1 and 10")
 
     source = validate_pdf_source(path)
     source_checksum = file_sha256(source)
@@ -503,6 +622,7 @@ def extract_pdf_with_vision(path, *, output_dir, passes=2, model=None, force=Fal
     output_name = f"{_safe_output_stem(source)}-{source_checksum[:16]}"
     report_path = output_directory / f"{output_name}.vision-report.json"
     manifest_path = output_directory / f"{output_name}.verified.json"
+    work_path = output_directory / f"{output_name}.vision-work.json"
 
     if report_path.is_file() and not force:
         try:
@@ -527,26 +647,128 @@ def extract_pdf_with_vision(path, *, output_dir, passes=2, model=None, force=Fal
     client = OpenAI(
         api_key=settings.OPENAI_API_KEY,
         timeout=float(settings.OPENAI_DOCUMENT_TIMEOUT_SECONDS),
-        max_retries=2,
+        max_retries=1,
     )
 
-    first_pass, first_usage = _request_transcription(
-        client,
-        source,
-        page_count=page_count,
-        model=extraction_model,
-    )
-    api_passes = [first_usage]
-    final_pass = first_pass
-    if passes == 2:
-        final_pass, second_usage = _request_transcription(
-            client,
-            source,
+    if work_path.is_file() and not force:
+        checkpoint = _load_work_checkpoint(
+            work_path,
+            source=source,
+            source_checksum=source_checksum,
             page_count=page_count,
             model=extraction_model,
-            draft=first_pass,
+            passes=passes,
+            batch_pages=extraction_batch_pages,
         )
-        api_passes.append(second_usage)
+    else:
+        checkpoint = _new_work_checkpoint(
+            source=source,
+            source_checksum=source_checksum,
+            page_count=page_count,
+            model=extraction_model,
+            passes=passes,
+            batch_pages=extraction_batch_pages,
+        )
+        _atomic_json_write(work_path, checkpoint)
+
+    for batch in _pdf_batches(source, batch_pages=extraction_batch_pages):
+        key = _batch_key(batch)
+        batch_record = checkpoint["batches"].setdefault(
+            key,
+            {
+                "start_page": batch["start_page"],
+                "end_page": batch["end_page"],
+            },
+        )
+        batch_filename = (
+            f"{source.stem}-pages-{batch['start_page']}-{batch['end_page']}.pdf"
+        )
+
+        if "first_pass" not in batch_record:
+            first_pass, first_usage = _request_transcription(
+                client,
+                batch["pdf_bytes"],
+                filename=batch_filename,
+                page_count=batch["page_count"],
+                model=extraction_model,
+            )
+            batch_record["first_pass"] = first_pass
+            batch_record["first_usage"] = {
+                **first_usage,
+                "pass_number": 1,
+                "source_page_start": batch["start_page"],
+                "source_page_end": batch["end_page"],
+            }
+            _atomic_json_write(work_path, checkpoint)
+            if progress:
+                progress(
+                    f"BATCH_PASS {source.name} pages={key} pass=1 "
+                    f"input_tokens={first_usage['input_tokens']} "
+                    f"output_tokens={first_usage['output_tokens']}"
+                )
+
+        if passes == 2 and "final_pass" not in batch_record:
+            final_pass, second_usage = _request_transcription(
+                client,
+                batch["pdf_bytes"],
+                filename=batch_filename,
+                page_count=batch["page_count"],
+                model=extraction_model,
+                draft=batch_record["first_pass"],
+            )
+            batch_record["final_pass"] = final_pass
+            batch_record["second_usage"] = {
+                **second_usage,
+                "pass_number": 2,
+                "source_page_start": batch["start_page"],
+                "source_page_end": batch["end_page"],
+            }
+            _atomic_json_write(work_path, checkpoint)
+            if progress:
+                progress(
+                    f"BATCH_PASS {source.name} pages={key} pass=2 "
+                    f"input_tokens={second_usage['input_tokens']} "
+                    f"output_tokens={second_usage['output_tokens']}"
+                )
+        elif passes == 1:
+            batch_record["final_pass"] = batch_record["first_pass"]
+            _atomic_json_write(work_path, checkpoint)
+
+    first_pages = []
+    final_pages = []
+    api_passes = []
+    document_titles = []
+    product_names = []
+    for key in sorted(
+        checkpoint["batches"],
+        key=lambda value: checkpoint["batches"][value]["start_page"],
+    ):
+        batch_record = checkpoint["batches"][key]
+        if "first_pass" not in batch_record or "final_pass" not in batch_record:
+            raise VisionExtractionError("The PDF extraction checkpoint is incomplete.")
+        offset = batch_record["start_page"] - 1
+        first_batch = _offset_payload_pages(batch_record["first_pass"], offset=offset)
+        final_batch = _offset_payload_pages(batch_record["final_pass"], offset=offset)
+        first_pages.extend(first_batch["pages"])
+        final_pages.extend(final_batch["pages"])
+        api_passes.append(batch_record["first_usage"])
+        if passes == 2:
+            api_passes.append(batch_record["second_usage"])
+        if final_batch["document_title"]:
+            document_titles.append(final_batch["document_title"])
+        for product_name in final_batch["product_names"]:
+            if product_name not in product_names:
+                product_names.append(product_name)
+
+    expected_page_numbers = list(range(1, page_count + 1))
+    if [page["page_number"] for page in final_pages] != expected_page_numbers:
+        raise VisionExtractionError("The completed PDF batches do not cover every source page.")
+    first_pass = {"pages": first_pages}
+    final_pass = {
+        "document_title": document_titles[0] if document_titles else source.stem,
+        "product_names": product_names,
+        "pages": final_pages,
+    }
 
     first_by_page = {page["page_number"]: page for page in first_pass["pages"]}
     report_pages = []
@@ -575,11 +797,15 @@ def extract_pdf_with_vision(path, *, output_dir, passes=2, model=None, force=Fal
         "product_names": final_pass["product_names"],
         "extraction_model": extraction_model,
         "extraction_pass_count": passes,
+        "extraction_batch_pages": extraction_batch_pages,
+        "extraction_batch_count": len(checkpoint["batches"]),
         "created_at": created_at,
         "api_passes": api_passes,
         "pages": report_pages,
     }
     _atomic_json_write(report_path, report)
     _write_manifest_from_report(report, manifest_path)
+    checkpoint["completed_at"] = created_at
+    _atomic_json_write(work_path, checkpoint)
 
     return _result_from_report(source, report_path, manifest_path, report, reused=False)

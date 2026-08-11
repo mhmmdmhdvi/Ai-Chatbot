@@ -31,6 +31,13 @@ class Command(BaseCommand):
         )
         parser.add_argument("--model", help="Override OPENAI_DOCUMENT_EXTRACTION_MODEL.")
         parser.add_argument(
+            "--batch-pages",
+            type=int,
+            choices=range(1, 11),
+            default=settings.OPENAI_DOCUMENT_BATCH_PAGES,
+            help="Send at most this many pages per resumable API batch (default: 3).",
+        )
+        parser.add_argument(
             "--embed",
             action="store_true",
             help="Import, embed, and activate trusted extracted pages.",
@@ -78,7 +85,9 @@ class Command(BaseCommand):
                     output_dir=options["output_dir"],
                     passes=options["passes"],
                     model=options["model"],
+                    batch_pages=options["batch_pages"],
                     force=options["force"],
+                    progress=self.stdout.write,
                 )
                 label = "REUSED" if result.reused else "EXTRACTED"
                 self.stdout.write(

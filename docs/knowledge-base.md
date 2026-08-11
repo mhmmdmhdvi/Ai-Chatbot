@@ -55,7 +55,9 @@ docker compose -f compose.yaml -f compose.prod.yaml run --rm \
 
 ## High-detail extraction for scanned PDFs
 
-Use the vision command for the supplied image-only PDFs. It sends the original PDF so the model receives both page images and any available PDF text, requests structured page output, and performs two independent passes. Technical numeric facts are compared between passes; a page with uncertainty or a disagreement is retained in the private audit report but excluded from active knowledge.
+Use the vision command for the supplied image-only PDFs. It sends at most three original PDF pages per API batch so the model receives both page images and any available PDF text, requests structured page output, and performs two independent passes. Technical numeric facts are compared between passes; a page with uncertainty or a disagreement is retained in the private audit report but excluded from active knowledge.
+
+Every completed pass is atomically saved in a private `.vision-work.json` checkpoint. A timeout, provider failure, SSH disconnect, or command retry therefore resumes at the first unfinished pass instead of repeating successful paid calls. Page numbers are restored to their original positions before indexing.
 
 Run extraction and embedding once on the production VPS, where the private imports already exist:
 
@@ -69,7 +71,7 @@ docker compose -f compose.yaml -f compose.prod.yaml run --rm \
   2>&1 | tee /var/tmp/ai-chatbot-vision-import.log
 ```
 
-The command is resumable. A matching extraction report is reused on retry, so a failed embedding does not repeat paid vision calls. Use `--force` only when intentionally replacing an extraction after changing the prompt or model.
+The command is resumable at both document and page-batch level. A matching extraction report is reused on retry, and incomplete documents resume from their saved pass checkpoint. Use `--force` only when intentionally discarding those paid results after changing the prompt or model.
 
 Expected output for each file is `trusted_pages=N/N`, `review_pages=0`, and `INDEXED ... status=ready`. Any `REVIEW_REQUIRED` page must be checked before it can be used for exact answers. Private reports and generated verified manifests remain in the persistent `documents_data` volume and are not served by Nginx.
 

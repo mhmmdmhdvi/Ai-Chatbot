@@ -797,6 +797,7 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [x] Add a second visual audit pass and compare technical numeric facts while excluding page/footer/contact numbers.
 - [x] Keep uncertain or disagreeing pages in a private report and out of active knowledge.
 - [x] Make extraction resumable so an embedding retry does not repeat paid vision calls.
+- [x] Split large scans into checkpointed three-page batches after whole-document requests failed on the 20-page catalogs.
 - [x] Validate the pipeline on all 3 pages of the Megatite S datasheet (38 numeric facts, no cross-pass disagreement).
 - [ ] Run the two-pass extraction and embedding job once for all 15 private PDFs on the production VPS.
 

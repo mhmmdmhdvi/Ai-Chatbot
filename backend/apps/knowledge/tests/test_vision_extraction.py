@@ -5,10 +5,12 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from django.test import SimpleTestCase, override_settings
+from openai import OpenAIError
 from pypdf import PdfWriter
 
 from apps.knowledge.vision_extraction import (
     AUTOMATED_NUMERIC_REVIEW_MESSAGE,
+    VisionExtractionError,
     _numeric_fact_difference,
     extract_pdf_with_vision,
 )
@@ -24,11 +26,31 @@ def vision_response(payload, *, response_id="response-vision", input_tokens=100,
     )
 
 
+def batch_payload(page_count, *, title="Megatite Batch Test"):
+    return {
+        "document_title": title,
+        "product_names": [title],
+        "pages": [
+            {
+                "page_number": page_number,
+                "content": (
+                    f"Page {page_number} contains sufficiently long verified technical "
+                    "information for safe document indexing."
+                ),
+                "numeric_facts": [],
+                "uncertain_items": [],
+            }
+            for page_number in range(1, page_count + 1)
+        ],
+    }
+
+
 @override_settings(
     OPENAI_API_KEY="test-key",
     OPENAI_DOCUMENT_EXTRACTION_MODEL="test-vision-model",
     OPENAI_DOCUMENT_TIMEOUT_SECONDS=300,
     OPENAI_DOCUMENT_MAX_OUTPUT_TOKENS=30_000,
+    OPENAI_DOCUMENT_BATCH_PAGES=3,
     KNOWLEDGE_MAX_FILE_BYTES=50 * 1024 * 1024,
 )
 class VisionExtractionTests(SimpleTestCase):
@@ -152,6 +174,99 @@ class VisionExtractionTests(SimpleTestCase):
         self.assertEqual(reused.input_tokens, 0)
         self.assertEqual(reused.output_tokens, 0)
         client.responses.create.assert_not_called()
+
+    @patch("apps.knowledge.vision_extraction.OpenAI")
+    def test_large_pdf_is_split_and_restored_to_source_page_numbers(self, openai_class):
+        source = self.create_pdf(page_count=5)
+        client = Mock()
+        client.responses.create.side_effect = [
+            vision_response(batch_payload(2), response_id="batch-1-pass-1"),
+            vision_response(batch_payload(2), response_id="batch-1-pass-2"),
+            vision_response(batch_payload(2), response_id="batch-2-pass-1"),
+            vision_response(batch_payload(2), response_id="batch-2-pass-2"),
+            vision_response(batch_payload(1), response_id="batch-3-pass-1"),
+            vision_response(batch_payload(1), response_id="batch-3-pass-2"),
+        ]
+        openai_class.return_value = client
+
+        result = extract_pdf_with_vision(
+            source,
+            output_dir=self.root / "output",
+            batch_pages=2,
+        )
+
+        self.assertEqual(result.trusted_page_count, 5)
+        self.assertEqual(client.responses.create.call_count, 6)
+        report = json.loads(result.report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["extraction_batch_pages"], 2)
+        self.assertEqual(report["extraction_batch_count"], 3)
+        self.assertEqual(
+            [page["page_number"] for page in report["pages"]],
+            [1, 2, 3, 4, 5],
+        )
+        filenames = [
+            call.kwargs["input"][0]["content"][0]["filename"]
+            for call in client.responses.create.call_args_list
+        ]
+        self.assertEqual(
+            filenames,
+            [
+                "Megatite Test-pages-1-2.pdf",
+                "Megatite Test-pages-1-2.pdf",
+                "Megatite Test-pages-3-4.pdf",
+                "Megatite Test-pages-3-4.pdf",
+                "Megatite Test-pages-5-5.pdf",
+                "Megatite Test-pages-5-5.pdf",
+            ],
+        )
+
+    @patch("apps.knowledge.vision_extraction.OpenAI")
+    def test_failed_batch_resumes_from_checkpoint_without_repeating_completed_calls(
+        self,
+        openai_class,
+    ):
+        source = self.create_pdf(page_count=4)
+        client = Mock()
+        client.responses.create.side_effect = [
+            vision_response(batch_payload(2), response_id="batch-1-pass-1"),
+            vision_response(batch_payload(2), response_id="batch-1-pass-2"),
+            vision_response(batch_payload(2), response_id="batch-2-pass-1"),
+            OpenAIError("temporary test failure"),
+        ]
+        openai_class.return_value = client
+
+        with self.assertRaises(VisionExtractionError):
+            extract_pdf_with_vision(
+                source,
+                output_dir=self.root / "output",
+                batch_pages=2,
+            )
+
+        work_path = next((self.root / "output").glob("*.vision-work.json"))
+        checkpoint = json.loads(work_path.read_text(encoding="utf-8"))
+        self.assertIn("final_pass", checkpoint["batches"]["1-2"])
+        self.assertIn("first_pass", checkpoint["batches"]["3-4"])
+        self.assertNotIn("final_pass", checkpoint["batches"]["3-4"])
+
+        client.responses.create.reset_mock()
+        client.responses.create.side_effect = [
+            vision_response(batch_payload(2), response_id="batch-2-pass-2")
+        ]
+
+        result = extract_pdf_with_vision(
+            source,
+            output_dir=self.root / "output",
+            batch_pages=2,
+        )
+
+        self.assertEqual(result.trusted_page_count, 4)
+        self.assertEqual(result.input_tokens, 400)
+        self.assertEqual(result.output_tokens, 200)
+        self.assertEqual(client.responses.create.call_count, 1)
+        resumed_filename = client.responses.create.call_args.kwargs["input"][0]["content"][
+            0
+        ]["filename"]
+        self.assertEqual(resumed_filename, "Megatite Test-pages-3-4.pdf")
 
     @patch("apps.knowledge.vision_extraction.OpenAI")
     def test_numeric_disagreement_is_preserved_for_review_but_not_activated(self, openai_class):
