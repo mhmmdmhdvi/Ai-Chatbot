@@ -53,6 +53,10 @@ class KnowledgeRetrievalTests(TestCase):
         queries = (
             "Megatite S.F چه کاربردی دارد؟",
             "Megatite S-F چه کاربردی دارد؟",
+            "مگاتایت S.F چه کاربردی دارد؟",
+            "مگاتایت S-F چه کاربردی دارد؟",
+            "مگاتایت S F چه کاربردی دارد؟",
+            "چسب S.F چه کاربردی دارد؟",
             "مگاتایت اس‌اف چه کاربردی دارد؟",
             "مگاتایت اس-اف چه کاربردی دارد؟",
             "مگاتایت اساف چه کاربردی دارد؟",
@@ -62,6 +66,9 @@ class KnowledgeRetrievalTests(TestCase):
         for query in queries:
             with self.subTest(query=query):
                 self.assertEqual(extract_product_codes(query), {"sf"})
+
+    def test_ignores_persian_diacritics_in_product_aliases(self):
+        self.assertEqual(extract_product_codes("مگاتایت اِس چیست؟"), {"s"})
 
     @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.5, KNOWLEDGE_RETRIEVAL_TOP_K=3)
     @patch("apps.knowledge.retrieval.create_embeddings")
@@ -99,6 +106,31 @@ class KnowledgeRetrievalTests(TestCase):
 
         self.assertIn("کیفیت: VERIFIED", context)
         self.assertIn("عددهای آن قابل استناد است", context)
+        self.assertIn("دیتاشیت اختصاصی محصول مقدم است", context)
+
+    @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.35, KNOWLEDGE_RETRIEVAL_TOP_K=1)
+    @patch("apps.knowledge.retrieval.create_embeddings")
+    def test_verified_product_sheet_outranks_verified_general_catalog(self, embeddings):
+        self.create_chunk(
+            title="Megatite general catalog",
+            source_key="verified megatite general catalog",
+            checksum_character="1",
+            embedding=[1.0] + [0.0] * 1023,
+            content_verified=True,
+        )
+        product_chunk = self.create_chunk(
+            title="Megatite C verified technical data",
+            source_key="verified megatite c technical fa",
+            checksum_character="2",
+            embedding=[0.95, 0.3122499] + [0.0] * 1022,
+            content_verified=True,
+        )
+        embeddings.return_value = [[1.0] + [0.0] * 1023]
+
+        hits = retrieve_knowledge("Megatite C")
+
+        self.assertEqual(len(hits), 1)
+        self.assertEqual(hits[0].chunk_id, product_chunk.id)
 
     @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.35, KNOWLEDGE_RETRIEVAL_TOP_K=1)
     @patch("apps.knowledge.retrieval.create_embeddings")

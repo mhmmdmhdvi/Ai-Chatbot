@@ -12,6 +12,10 @@ The vision extraction pipeline was exercised against all three pages of the same
 
 The preferred production path is now a text-native DOCX typed and checked by a person against the source PDF. DOCX import is deliberately strict: it accepts body paragraphs and tables in document order, but rejects macros, media, drawings, text boxes, tracked changes, headers/footers, and embedded objects so reviewed content cannot be silently omitted.
 
+Human-reviewed DOCX versions of **Megatite S**, **Megatite C**, and **Megatite SF** are active in production. Product-specific verified datasheets outrank a verified general catalog whenever both are retrieved; general portfolio claims must not be applied to an individual product unless its own datasheet supports them.
+
+The 20-page Persian general catalog required a curated rebuild because its supplied DOCX contained transcription errors, missing chart/table data, and broad marketing claims. The reviewed catalog intentionally excludes the ambiguous four-column core-barrel engineering table, unlabeled chart values, and time-sensitive certificates and contact details. Those items require separate authoritative confirmation before activation.
+
 ## Design
 
 - Original files are private and stored in the `documents_data` Docker volume, outside static/public paths.

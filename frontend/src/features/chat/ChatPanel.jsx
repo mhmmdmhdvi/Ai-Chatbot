@@ -4,6 +4,7 @@ import customerAvatar from "../../assets/customer-avatar.webp";
 import customerGuideAvatar from "../../assets/customer-guide-avatar.webp";
 import Dialog from "../../components/Dialog";
 import { Icon } from "../../components/Icons";
+import MessageContent from "../../components/MessageContent";
 import useIdleTimeout from "../../hooks/useIdleTimeout";
 import { ApiError, api } from "../../services/api";
 
@@ -42,7 +43,7 @@ function MessageBubble({ message }) {
             <span className="h-2 w-2 animate-bounce rounded-full bg-cyan-500" />
           </span>
         ) : (
-          <p className="mixed-content whitespace-pre-wrap break-words text-[15px] leading-7 sm:text-base" dir="auto">{message.content}</p>
+          <MessageContent content={message.content} formatted={!customer} />
         )}
         {time && (
           <time className={`mt-1.5 block text-[11px] ${customer ? "text-slate-300" : "text-slate-400"}`} dateTime={message.created_at}>

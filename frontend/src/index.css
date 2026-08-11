@@ -378,6 +378,33 @@ textarea:focus-visible {
   unicode-bidi: plaintext;
 }
 
+.assistant-message-content > * + * {
+  margin-top: 0.55rem;
+}
+
+.assistant-message-content {
+  direction: rtl;
+  unicode-bidi: isolate;
+  overflow-wrap: anywhere;
+}
+
+.assistant-message-list {
+  padding-inline-start: 1.35rem;
+  list-style-position: outside;
+}
+
+.assistant-message-list:is(ul) {
+  list-style-type: disc;
+}
+
+.assistant-message-list:is(ol) {
+  list-style-type: decimal;
+}
+
+.assistant-message-list > li + li {
+  margin-top: 0.2rem;
+}
+
 .intake-stage {
   perspective: 1450px;
   perspective-origin: center 42%;

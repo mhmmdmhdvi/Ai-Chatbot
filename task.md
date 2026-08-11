@@ -4,7 +4,7 @@
 
 This file is the working implementation plan for the AI Customer Assistant project. Keep it updated as decisions are made and phases are completed.
 
-Planning status: **Phase 5/6 RAG is live — two-pass visual document extraction and seller-expert responses are in progress**
+Planning status: **Phase 5/6 RAG is live — verified S, C, and SF knowledge is in production; the reviewed general catalog is next**
 
 The OpenAI adapter and live VPS connectivity test are complete. External AI calls remain disabled on the Tehran development machine; embeddings and production chat run only from the supported production environment described by the owner.
 
@@ -803,9 +803,12 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [x] Add a controlled, checksum-deduplicated `import_verified_docx` command with an explicit human-review gate.
 - [x] Audit the first Megatite S DOCX and identify the required `28 -> 7 days`, `bases -> steps`, and `thinner -> thinners` corrections.
 - [x] Validate a temporary corrected local copy with six retrieval questions and three live Persian seller-answer tests.
-- [ ] Correct the original Megatite S DOCX, re-audit it, and import it on production.
-- [ ] Deactivate only the old Megatite S OCR/vision source keys after the verified DOCX passes on production.
-- [ ] Repeat the human-reviewed DOCX workflow for the remaining products.
+- [x] Correct, re-audit, and import the Megatite S DOCX on production.
+- [x] Deactivate only the old Megatite S OCR/vision source keys after the verified DOCX passes on production.
+- [x] Repeat the human-reviewed DOCX workflow for Megatite C and Megatite SF, including alias and safety checks.
+- [x] Audit all 20 pages of the general catalog and build a strict-import-safe reviewed DOCX that excludes ambiguous engineering tables and time-sensitive contact/certificate claims.
+- [ ] Import the reviewed general catalog on production, run general and product-specific regression questions, then deactivate only the matching legacy catalog source.
+- [x] Render the assistant's safe bold and list formatting correctly in the Persian chat UI without interpreting customer Markdown or raw HTML.
 
 ### Files/architecture
 
@@ -1429,7 +1432,8 @@ Preferred production starting point for additional headroom:
 
 ## Next action
 
-1. Push and deploy the vision-extraction and seller-expert prompt changes.
-2. Run the resumable two-pass extraction with embedding once for all 15 private PDFs on the VPS; review any page reported as uncertain.
-3. Run a Persian evaluation set covering recommendations, comparisons, exact specifications, unknown questions, and prompt-injection attempts.
-4. Open the application on the touchscreen stand and verify touch comfort, Persian typing, and the Windows on-screen keyboard.
+1. Push and deploy the assistant-formatting fix and product-specific-datasheet precedence rule.
+2. Upload, inspect, import, and embed the private reviewed general-catalog DOCX on the VPS.
+3. Run Persian regression questions for FRP pipes, tanks, coatings, core barrels, services, S/C/SF precedence, unknown values, and safety boundaries; then deactivate only the legacy general-catalog source.
+4. Continue the same human-reviewed DOCX workflow for the remaining product documents.
+5. Open the application on the touchscreen stand and verify touch comfort, Persian typing, scrolling, and the Windows on-screen keyboard.
