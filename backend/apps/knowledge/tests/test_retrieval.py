@@ -73,6 +73,48 @@ class KnowledgeRetrievalTests(TestCase):
     def test_extracts_persian_g_after_adhesive_context(self):
         self.assertEqual(extract_product_codes("چسب جی چه کاربردی دارد؟"), {"g"})
 
+    def test_extracts_persian_t_with_brand_half_space(self):
+        self.assertEqual(extract_product_codes("مگاتایت‌تی چه کاربردی دارد؟"), {"t"})
+        self.assertEqual(extract_product_codes("چسب‌تی چه کاربردی دارد؟"), {"t"})
+
+    def test_t_alias_does_not_collide_with_ct_or_lt(self):
+        self.assertEqual(extract_product_codes("مگاتایت تی چیست؟"), {"t"})
+        self.assertEqual(extract_product_codes("مگاتایت سی تی چیست؟"), {"ct"})
+        self.assertEqual(extract_product_codes("مگاتایت ال تی چیست؟"), {"lt"})
+
+    def test_ct_and_lt_compound_aliases_do_not_extract_t(self):
+        aliases = {
+            "ct": (
+                "Megatite CT",
+                "Megatite C.T",
+                "Megatite C-T",
+                "Megatite C T",
+                "Megatite C‌T",
+                "مگاتایت سی تی",
+                "مگاتایت سی.تی",
+                "مگاتایت سی-تی",
+                "مگاتایت سی‌تی",
+                "مگاتایت سیتی",
+            ),
+            "lt": (
+                "Megatite LT",
+                "Megatite L.T",
+                "Megatite L-T",
+                "Megatite L T",
+                "Megatite L‌T",
+                "مگاتایت ال تی",
+                "مگاتایت ال.تی",
+                "مگاتایت ال-تی",
+                "مگاتایت ال‌تی",
+                "مگاتایت التی",
+            ),
+        }
+
+        for expected_code, queries in aliases.items():
+            for query in queries:
+                with self.subTest(query=query):
+                    self.assertEqual(extract_product_codes(query), {expected_code})
+
     def test_does_not_treat_gram_or_temperature_units_as_product_codes(self):
         self.assertEqual(
             extract_product_codes("۱۰۰ g چسب Megatite C در ۲۵°C"),
@@ -190,6 +232,51 @@ class KnowledgeRetrievalTests(TestCase):
         self.assertEqual(len(hits), 1)
         self.assertEqual(hits[0].chunk_id, verified_chunk.id)
         self.assertTrue(hits[0].content_verified)
+
+    @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.35, KNOWLEDGE_RETRIEVAL_TOP_K=6)
+    @patch("apps.knowledge.retrieval.create_embeddings")
+    def test_explicit_t_ct_and_lt_queries_exclude_other_product_documents(self, embeddings):
+        general_chunk = self.create_chunk(
+            title="Megatite general catalog",
+            source_key="verified megatite general catalog",
+            checksum_character="1",
+            embedding=[1.0] + [0.0] * 1023,
+            content_verified=True,
+        )
+        t_chunk = self.create_chunk(
+            title="Megatite T verified technical data",
+            source_key="verified megatite t technical fa",
+            checksum_character="2",
+            embedding=[0.80, 0.60] + [0.0] * 1022,
+            content_verified=True,
+        )
+        ct_chunk = self.create_chunk(
+            title="Megatite CT verified technical data",
+            source_key="verified megatite ct technical fa",
+            checksum_character="3",
+            embedding=[0.95, 0.3122499] + [0.0] * 1022,
+            content_verified=True,
+        )
+        lt_chunk = self.create_chunk(
+            title="Megatite LT verified technical data",
+            source_key="verified megatite lt technical fa",
+            checksum_character="4",
+            embedding=[0.98, 0.199] + [0.0] * 1022,
+            content_verified=True,
+        )
+        embeddings.return_value = [[1.0] + [0.0] * 1023]
+
+        cases = (
+            ("Megatite T", t_chunk, {ct_chunk.id, lt_chunk.id}),
+            ("Megatite C-T", ct_chunk, {t_chunk.id, lt_chunk.id}),
+            ("مگاتایت ال‌تی", lt_chunk, {t_chunk.id, ct_chunk.id}),
+        )
+        for query, expected_chunk, excluded_ids in cases:
+            with self.subTest(query=query):
+                hit_ids = [hit.chunk_id for hit in retrieve_knowledge(query)]
+                self.assertEqual(hit_ids[0], expected_chunk.id)
+                self.assertIn(general_chunk.id, hit_ids)
+                self.assertTrue(excluded_ids.isdisjoint(hit_ids))
 
     @patch("apps.knowledge.retrieval.create_embeddings")
     def test_does_not_call_embedding_api_without_active_knowledge(self, embeddings):

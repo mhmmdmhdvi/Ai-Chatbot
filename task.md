@@ -4,7 +4,7 @@
 
 This file is the working implementation plan for the AI Customer Assistant project. Keep it updated as decisions are made and phases are completed.
 
-Planning status: **Phase 5/6 RAG is live — verified S, C, and SF knowledge is in production; the reviewed general catalog is next**
+Planning status: **Phase 5/6 RAG is live — verified S, C, SF, and G knowledge is in production; Megatite T is reviewed and ready for deployment**
 
 The OpenAI adapter and live VPS connectivity test are complete. External AI calls remain disabled on the Tehran development machine; embeddings and production chat run only from the supported production environment described by the owner.
 
@@ -809,7 +809,10 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [x] Audit all 20 pages of the general catalog and build a strict-import-safe reviewed DOCX that excludes ambiguous engineering tables and time-sensitive contact/certificate claims.
 - [ ] Import the reviewed general catalog on production, run general and product-specific regression questions, then deactivate only the matching legacy catalog source.
 - [x] Audit Megatite G, rebuild its incorrect cure tables and applications as a strict-import-safe reviewed DOCX, and add Persian G/unit-routing regression coverage.
-- [ ] Import the reviewed Megatite G DOCX on production, run its acceptance questions, then deactivate only the matching legacy G source.
+- [x] Import the reviewed Megatite G DOCX on production, run its acceptance questions, then deactivate only the matching legacy G source.
+- [x] Audit Megatite T against its brochure, correct the 15°C initial-cure value from 36 to 24 hours, and build a strict-import-safe reviewed DOCX with explicit safety and unknown-data boundaries.
+- [x] Add Persian/ASCII compound-alias handling and cross-product retrieval isolation so T remains distinct from CT and LT while general catalog evidence stays available.
+- [ ] Import the reviewed Megatite T DOCX on production, run its acceptance questions, then deactivate only the matching legacy T source.
 - [x] Render the assistant's safe bold and list formatting correctly in the Persian chat UI without interpreting customer Markdown or raw HTML.
 
 ### Files/architecture
@@ -1434,8 +1437,8 @@ Preferred production starting point for additional headroom:
 
 ## Next action
 
-1. Deploy the latest product-routing update.
-2. Upload, inspect, import, and embed any still-pending reviewed general-catalog and Megatite G DOCX files on the VPS.
-3. Run Persian regression questions for the general catalog and Megatite G, including product-sheet precedence, missing values, and safety boundaries; then deactivate only their matching legacy sources.
-4. Continue the same human-reviewed DOCX workflow for the remaining product documents.
+1. Push and deploy the Megatite T alias update.
+2. Upload, checksum, dry-run, import, and embed the reviewed Megatite T DOCX on the VPS.
+3. Run the Megatite T Persian acceptance questions, then deactivate only its matching legacy source.
+4. Import and test the still-pending reviewed general catalog, then continue the same human-reviewed DOCX workflow for the remaining product documents.
 5. Open the application on the touchscreen stand and verify touch comfort, Persian typing, scrolling, and the Windows on-screen keyboard.

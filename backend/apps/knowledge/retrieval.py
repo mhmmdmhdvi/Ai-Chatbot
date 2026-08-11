@@ -18,6 +18,10 @@ class KnowledgeRetrievalError(RuntimeError):
 PRODUCT_CODES = frozenset({"s", "c", "g", "t", "sf", "sp", "lt", "hc", "ct", "pigment"})
 ASCII_SF_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])s[\s._-]+f(?![a-z0-9])")
 PERSIAN_SF_ALIAS_PATTERN = re.compile(r"(?<!\w)اس[\s\u200c._-]*اف(?!\w)")
+ASCII_CT_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])c[\s._-]+t(?![a-z0-9])")
+ASCII_LT_ALIAS_PATTERN = re.compile(r"(?<![a-z0-9])l[\s._-]+t(?![a-z0-9])")
+PERSIAN_CT_ALIAS_PATTERN = re.compile(r"(?<!\w)سی[\s\u200c._-]*تی(?!\w)")
+PERSIAN_LT_ALIAS_PATTERN = re.compile(r"(?<!\w)ال[\s\u200c._-]*تی(?!\w)")
 MEASUREMENT_CODE_PATTERN = re.compile(
     r"(?<![a-z0-9])\d+(?:[.,]\d+)?\s*°?\s*(?:g|c)(?![a-z0-9])"
 )
@@ -67,12 +71,19 @@ def extract_product_codes(query):
         for character in unicodedata.normalize("NFD", normalized)
         if unicodedata.category(character) != "Mn"
     )
+    # Treat Persian half-spaces as word boundaries for branded aliases such as
+    # «مگاتایت‌تی», while leaving the original query untouched for embeddings.
+    normalized = normalized.replace("\u200c", " ")
     has_product_context = (
         "megatite" in normalized or "مگاتایت" in normalized or "چسب" in normalized
     )
     if has_product_context:
         normalized = ASCII_SF_ALIAS_PATTERN.sub(" sf ", normalized)
         normalized = PERSIAN_SF_ALIAS_PATTERN.sub(" sf ", normalized)
+        normalized = ASCII_CT_ALIAS_PATTERN.sub(" ct ", normalized)
+        normalized = ASCII_LT_ALIAS_PATTERN.sub(" lt ", normalized)
+        normalized = PERSIAN_CT_ALIAS_PATTERN.sub(" ct ", normalized)
+        normalized = PERSIAN_LT_ALIAS_PATTERN.sub(" lt ", normalized)
 
     code_source = MEASUREMENT_CODE_PATTERN.sub(" ", normalized)
     ascii_tokens = set(re.findall(r"[a-z0-9]+", code_source))
@@ -134,7 +145,10 @@ def retrieve_knowledge(query):
         similarity = 1.0 - float(chunk.distance)
         if similarity < settings.KNOWLEDGE_MIN_SIMILARITY:
             continue
-        code_matches = len(product_codes.intersection(_document_product_codes(chunk)))
+        document_codes = _document_product_codes(chunk)
+        if product_codes and document_codes and document_codes.isdisjoint(product_codes):
+            continue
+        code_matches = len(product_codes.intersection(document_codes))
         verified_boost = (
             0.35
             if chunk.version.content_verified and (not product_codes or code_matches)
