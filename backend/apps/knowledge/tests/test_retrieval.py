@@ -67,6 +67,38 @@ class KnowledgeRetrievalTests(TestCase):
             with self.subTest(query=query):
                 self.assertEqual(extract_product_codes(query), {"sf"})
 
+    def test_sp_aliases_do_not_also_extract_s(self):
+        queries = (
+            "Megatite SP چه کاربردی دارد؟",
+            "Megatite S.P چه کاربردی دارد؟",
+            "Megatite S-P چه کاربردی دارد؟",
+            "Megatite S P چه کاربردی دارد؟",
+            "Megatite S_P چه کاربردی دارد؟",
+            "Megatite S‌P چه کاربردی دارد؟",
+            "مگاتایت SP چه کاربردی دارد؟",
+            "مگاتایت اس پی چه کاربردی دارد؟",
+            "مگاتایت اس‌پی چه کاربردی دارد؟",
+            "مگاتایت اس.پی چه کاربردی دارد؟",
+            "مگاتایت اس-پی چه کاربردی دارد؟",
+            "مگاتایت اسپی چه کاربردی دارد؟",
+            "مگاتایت‌اس‌پی چه کاربردی دارد؟",
+            "چسب اس پی چه کاربردی دارد؟",
+        )
+
+        for query in queries:
+            with self.subTest(query=query):
+                self.assertEqual(extract_product_codes(query), {"sp"})
+
+    def test_sp_measurement_query_does_not_extract_unit_codes(self):
+        self.assertEqual(
+            extract_product_codes("۲۰۰ g رزین و ۵ g هاردنر Megatite SP در ۲۵°C"),
+            {"sp"},
+        )
+
+    def test_extracts_both_products_in_s_and_sp_comparison(self):
+        self.assertEqual(extract_product_codes("فرق Megatite S و SP چیست؟"), {"s", "sp"})
+        self.assertEqual(extract_product_codes("فرق مگاتایت اس و اس پی چیست؟"), {"s", "sp"})
+
     def test_ignores_persian_diacritics_in_product_aliases(self):
         self.assertEqual(extract_product_codes("مگاتایت اِس چیست؟"), {"s"})
 
@@ -276,6 +308,57 @@ class KnowledgeRetrievalTests(TestCase):
                 hit_ids = [hit.chunk_id for hit in retrieve_knowledge(query)]
                 self.assertEqual(hit_ids[0], expected_chunk.id)
                 self.assertIn(general_chunk.id, hit_ids)
+                self.assertTrue(excluded_ids.isdisjoint(hit_ids))
+
+    @override_settings(KNOWLEDGE_MIN_SIMILARITY=0.35, KNOWLEDGE_RETRIEVAL_TOP_K=6)
+    @patch("apps.knowledge.retrieval.create_embeddings")
+    def test_explicit_sp_s_and_sf_queries_are_product_isolated(self, embeddings):
+        general_chunk = self.create_chunk(
+            title="Megatite general catalog",
+            source_key="verified general catalog sp isolation",
+            checksum_character="5",
+            embedding=[1.0] + [0.0] * 1023,
+            content_verified=True,
+        )
+        chunks = {
+            "s": self.create_chunk(
+                title="Megatite S verified technical data",
+                source_key="verified megatite s isolation",
+                checksum_character="6",
+                embedding=[0.90, 0.435] + [0.0] * 1022,
+                content_verified=True,
+            ),
+            "sf": self.create_chunk(
+                title="Megatite SF verified technical data",
+                source_key="verified megatite sf isolation",
+                checksum_character="a",
+                embedding=[0.95, 0.3122499] + [0.0] * 1022,
+                content_verified=True,
+            ),
+            "sp": self.create_chunk(
+                title="Megatite SP verified technical data",
+                source_key="verified megatite sp isolation",
+                checksum_character="b",
+                embedding=[0.80, 0.60] + [0.0] * 1022,
+                content_verified=True,
+            ),
+        }
+        embeddings.return_value = [[1.0] + [0.0] * 1023]
+
+        cases = (
+            ("Megatite S", "s"),
+            ("Megatite SF", "sf"),
+            ("Megatite S.P", "sp"),
+            ("مگاتایت اسپی", "sp"),
+        )
+        for query, expected_code in cases:
+            with self.subTest(query=query):
+                hit_ids = [hit.chunk_id for hit in retrieve_knowledge(query)]
+                self.assertEqual(hit_ids[0], chunks[expected_code].id)
+                self.assertIn(general_chunk.id, hit_ids)
+                excluded_ids = {
+                    chunk.id for code, chunk in chunks.items() if code != expected_code
+                }
                 self.assertTrue(excluded_ids.isdisjoint(hit_ids))
 
     @patch("apps.knowledge.retrieval.create_embeddings")
