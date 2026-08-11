@@ -773,7 +773,7 @@ Document extraction and lifecycle quality determine the reliability of the later
 
 - [x] Add document and document-version models.
 - [x] Extract approved PDF documents.
-- [ ] Add DOCX/TXT extraction only when those formats are supplied and approved.
+- [x] Add strict DOCX extraction for human-reviewed paragraphs and tables; TXT remains deferred until supplied.
 - [x] Detect scanned/empty PDFs and run local Persian/English OCR when approved.
 - [x] Normalize Persian and mixed Persian/English document text conservatively.
 - [x] Chunk text while preserving document and page metadata.
@@ -799,7 +799,13 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [x] Make extraction resumable so an embedding retry does not repeat paid vision calls.
 - [x] Split large scans into checkpointed three-page batches after whole-document requests failed on the 20-page catalogs.
 - [x] Validate the pipeline on all 3 pages of the Megatite S datasheet (38 numeric facts, no cross-pass disagreement).
-- [ ] Run the two-pass extraction and embedding job once for all 15 private PDFs on the production VPS.
+- [x] Confirm through human comparison that agreeing vision passes can still misread a technical value; do not treat AI agreement as verification.
+- [x] Add a controlled, checksum-deduplicated `import_verified_docx` command with an explicit human-review gate.
+- [x] Audit the first Megatite S DOCX and identify the required `28 -> 7 days`, `bases -> steps`, and `thinner -> thinners` corrections.
+- [x] Validate a temporary corrected local copy with six retrieval questions and three live Persian seller-answer tests.
+- [ ] Correct the original Megatite S DOCX, re-audit it, and import it on production.
+- [ ] Deactivate only the old Megatite S OCR/vision source keys after the verified DOCX passes on production.
+- [ ] Repeat the human-reviewed DOCX workflow for the remaining products.
 
 ### Files/architecture
 
@@ -808,13 +814,14 @@ Document extraction and lifecycle quality determine the reliability of the later
 - `backend/apps/knowledge/chunking.py`
 - `backend/apps/knowledge/repository.py`
 - `backend/apps/knowledge/management/commands/import_documents.py`
+- `backend/apps/knowledge/management/commands/import_verified_docx.py`
 - `backend/apps/knowledge/management/commands/extract_documents_with_vision.py`
 - `backend/apps/knowledge/vision_extraction.py`
 
 ### Dependencies
 
 - PDF text extraction library
-- DOCX extraction library only if DOCX is later approved
+- `python-docx` for strict, text-native DOCX extraction
 - pgvector integration
 - Approved embedding provider
 

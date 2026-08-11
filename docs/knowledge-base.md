@@ -8,7 +8,9 @@ Do not treat exact OCR-derived numbers as approved technical specifications. Ret
 
 The page-2 application and curing table for **Megatite S** has been manually checked against the supplied PDF and is shipped as checksum-bound `VERIFIED` knowledge. It includes the 1:1 mix ratio, 45-minute working time at 25°C, 12-hour initial cure at 25°C, and the temperature-dependent cure tables.
 
-The vision extraction pipeline was validated against all three pages of the same datasheet on 2026-08-11. It recovered 38 structured technical numeric facts, and both high-detail passes agreed on every technical value. The remaining PDFs must pass the same production extraction before their exact values become active.
+The vision extraction pipeline was exercised against all three pages of the same datasheet on 2026-08-11. It recovered 38 structured technical numeric facts, and both high-detail passes agreed with one another. A later human comparison still found an incorrect storage temperature in the AI transcription. Two agreeing AI passes therefore do not count as human verification, and vision-only output must not be activated as exact technical knowledge.
+
+The preferred production path is now a text-native DOCX typed and checked by a person against the source PDF. DOCX import is deliberately strict: it accepts body paragraphs and tables in document order, but rejects macros, media, drawings, text boxes, tracked changes, headers/footers, and embedded objects so reviewed content cannot be silently omitted.
 
 ## Design
 
@@ -53,6 +55,33 @@ docker compose -f compose.yaml -f compose.prod.yaml run --rm \
   backend python manage.py index_documents --all-pending
 ```
 
+## Human-reviewed DOCX import
+
+First inspect the Word file without writing to the database or calling OpenAI:
+
+```bash
+docker compose -f compose.yaml -f compose.prod.yaml run --rm --no-deps \
+  --volume "/opt/ai-chatbot/imports:/imports:ro" \
+  backend python manage.py import_verified_docx \
+  "/imports/Megatite S.docx" --dry-run --sample-characters 500
+```
+
+Compare every paragraph and every table with the original source. Only after that human review succeeds, import and embed it with a stable source key:
+
+```bash
+docker compose -f compose.yaml -f compose.prod.yaml run --rm \
+  --volume "/opt/ai-chatbot/imports:/imports:ro" \
+  backend python manage.py import_verified_docx \
+  "/imports/Megatite S.docx" \
+  --source-key "verified:megatite-s-technical-fa" \
+  --title "Megatite S - verified technical data" \
+  --confirm-reviewed --embed
+```
+
+`--confirm-reviewed` is an intentional trust boundary; never use it for unreviewed OCR or AI-generated text. A DOCX is stored as one logical page because Word pagination depends on fonts and rendering. Reimporting a changed DOCX with the same source key creates a new immutable version and activates it only after embedding succeeds.
+
+After the new version passes retrieval and live-answer tests, list active sources for that product and deactivate the exact source keys of its old OCR/vision documents. Do not delete the source files or database volumes.
+
 ## High-detail extraction for scanned PDFs
 
 Use the vision command for the supplied image-only PDFs. It sends at most three original PDF pages per API batch so the model receives both page images and any available PDF text, requests structured page output, and performs two independent passes. Technical numeric facts are compared between passes; a page with uncertainty or a disagreement is retained in the private audit report but excluded from active knowledge.
@@ -73,7 +102,7 @@ docker compose -f compose.yaml -f compose.prod.yaml run --rm \
 
 The command is resumable at both document and page-batch level. A matching extraction report is reused on retry, and incomplete documents resume from their saved pass checkpoint. Use `--force` only when intentionally discarding those paid results after changing the prompt or model.
 
-Expected output for each file is `trusted_pages=N/N`, `review_pages=0`, and `INDEXED ... status=ready`. Any `REVIEW_REQUIRED` page must be checked before it can be used for exact answers. Private reports and generated verified manifests remain in the persistent `documents_data` volume and are not served by Nginx.
+The mechanical verifier reports `trusted_pages=N/N` when its two passes agree, but this is still a review candidate rather than human-verified content. Any `REVIEW_REQUIRED` page must be checked, and even agreeing pages must be compared with the original before exact facts can be trusted. Private reports and generated manifests remain in the persistent `documents_data` volume and are not served by Nginx.
 
 Useful checks after the run:
 
@@ -122,4 +151,4 @@ Before customer use, test Persian questions for:
 - customer and document prompt-injection attempts;
 - answer-source accuracy in Django Admin.
 
-Exact technical values must remain a staff-review response unless they come from a `VERIFIED` source. This includes the manually checked Megatite S page-2 source and pages accepted by the two-pass vision verifier.
+Exact technical values must remain a staff-review response unless they come from a human-reviewed `VERIFIED` source. Two-pass vision agreement alone is not human verification.
