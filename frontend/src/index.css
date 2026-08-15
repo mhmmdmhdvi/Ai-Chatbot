@@ -480,6 +480,14 @@ textarea:focus-visible {
   animation: adviser-curious 2.8s ease-in-out infinite;
 }
 
+.message-avatar.assistant-avatar-mood-thinking {
+  animation: adviser-thinking 3.2s ease-in-out infinite;
+}
+
+.message-avatar.assistant-avatar-mood-goodbye {
+  animation: adviser-goodbye 4.2s ease-in-out infinite;
+}
+
 .assistant-avatar.assistant-avatar-mood-happy {
   filter:
     drop-shadow(0 1.4rem 1.6rem rgb(1 5 20 / 42%))
@@ -1019,6 +1027,16 @@ textarea:focus-visible {
 @keyframes adviser-curious {
   0%, 100% { transform: translateY(0.35rem) rotate(0deg); }
   50% { transform: translateY(0.18rem) rotate(-1.2deg); }
+}
+
+@keyframes adviser-thinking {
+  0%, 100% { transform: translateY(0.35rem) rotate(0deg); }
+  50% { transform: translateY(0.15rem) rotate(0.8deg); }
+}
+
+@keyframes adviser-goodbye {
+  0%, 100% { transform: translateY(0.35rem) rotate(0deg); }
+  50% { transform: translateY(0.18rem) rotate(-0.8deg); }
 }
 
 @keyframes thinking-spark {

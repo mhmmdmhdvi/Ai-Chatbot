@@ -1483,9 +1483,9 @@ Preferred production starting point for additional headroom:
 
 ### Phase 5 — character state system
 
-- [x] Create and optimize a consistent first character set: greeting, neutral, curious/thinking, happy, and careful.
+- [x] Create and optimize a consistent premium character set: greeting, neutral, curious, thinking, happy, careful, and goodbye.
 - [x] Preload transparent character assets and map them to deterministic UI states without another AI request.
-- [ ] Add a distinct goodbye pose after the end-of-conversation experience is finalized.
+- [x] Add a distinct goodbye expression that activates from closing language.
 
 ### Phase 6 — final quality pass
 

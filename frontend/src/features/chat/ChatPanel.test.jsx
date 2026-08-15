@@ -133,9 +133,10 @@ describe("ChatPanel layout helpers", () => {
 
   it("maps conversation state and answer tone to deterministic adviser expressions", () => {
     expect(getAssistantAvatarMood({ avatarMood: "greeting" })).toBe("greeting");
-    expect(getAssistantAvatarMood({ streaming: true })).toBe("curious");
+    expect(getAssistantAvatarMood({ streaming: true })).toBe("thinking");
     expect(getAssistantAvatarMood({ failed: true })).toBe("careful");
     expect(getAssistantAvatarMood({ content: "اطلاعات کافی درباره این مورد در اختیارم نیست." })).toBe("careful");
+    expect(getAssistantAvatarMood({ content: "ممنون که با من گفتگو کردید؛ روز خوبی داشته باشید." })).toBe("goodbye");
     expect(getAssistantAvatarMood({ content: "بله، این محصول برای این کاربرد مناسب است." })).toBe("happy");
     expect(getAssistantAvatarMood({ content: "جنس سطح موردنظر شما چیست؟" })).toBe("curious");
     expect(getAssistantAvatarMood({ content: "زمان پخت اولیه ۱۲ ساعت است." })).toBe("neutral");
@@ -194,7 +195,7 @@ describe("ChatPanel turn experience", () => {
     expect(screen.queryByText("می‌توانید گفتگو را با یکی از این سؤال‌ها شروع کنید:")).toBeNull();
     expect(screen.getByText("یک لحظه، دارم اطلاعات مرتبط را بررسی می‌کنم")).toBeTruthy();
     expect(document.querySelector('.chat-status-pill')).toBeNull();
-    expect(document.querySelector('img[data-avatar-mood="curious"]')).not.toBeNull();
+    expect(document.querySelector('img[data-avatar-mood="thinking"]')).not.toBeNull();
     expect(document.querySelector(".chat-surface").getAttribute("aria-busy")).toBe("true");
   });
 

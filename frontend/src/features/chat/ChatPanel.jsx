@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import customerAvatar from "../../assets/customer-avatar.webp";
-import customerGuideAvatar from "../../assets/customer-guide-avatar.webp";
-import customerGuideCareful from "../../assets/customer-guide-careful.webp";
-import customerGuideCurious from "../../assets/customer-guide-curious.webp";
-import customerGuideGreeting from "../../assets/customer-guide-greeting.webp";
-import customerGuideHappy from "../../assets/customer-guide-happy.webp";
+import customerGuideCareful from "../../assets/customer-guide-premium-careful.webp";
+import customerGuideCurious from "../../assets/customer-guide-premium-curious.webp";
+import customerGuideGoodbye from "../../assets/customer-guide-premium-goodbye.webp";
+import customerGuideGreeting from "../../assets/customer-guide-premium-greeting.webp";
+import customerGuideHappy from "../../assets/customer-guide-premium-happy.webp";
+import customerGuideAvatar from "../../assets/customer-guide-premium-neutral.webp";
+import customerGuideThinking from "../../assets/customer-guide-premium-thinking.webp";
 import Dialog from "../../components/Dialog";
 import { Icon } from "../../components/Icons";
 import MessageContent from "../../components/MessageContent";
@@ -19,7 +21,7 @@ export const MESSAGE_BOTTOM_THRESHOLD_PX = 96;
 export const COMPOSER_MIN_HEIGHT_PX = 56;
 export const COMPOSER_MAX_HEIGHT_PX = 128;
 export const ACTIVE_NETWORK_STATUSES = ["sending", "thinking", "streaming"];
-export const ASSISTANT_AVATAR_MOODS = ["neutral", "greeting", "curious", "happy", "careful"];
+export const ASSISTANT_AVATAR_MOODS = ["neutral", "greeting", "curious", "thinking", "happy", "careful", "goodbye"];
 export const STARTER_QUESTIONS = [
   "برای نمای ساختمان چه چسبی پیشنهاد می‌کنید؟",
   "تفاوت مگاتایت S و C چیست؟",
@@ -31,8 +33,10 @@ const ASSISTANT_AVATAR_BY_MOOD = {
   neutral: customerGuideAvatar,
   greeting: customerGuideGreeting,
   curious: customerGuideCurious,
+  thinking: customerGuideThinking,
   happy: customerGuideHappy,
   careful: customerGuideCareful,
+  goodbye: customerGuideGoodbye,
 };
 
 const CAREFUL_ANSWER_HINTS = [
@@ -58,6 +62,14 @@ const HAPPY_ANSWER_HINTS = [
   "گزینه مناسبی",
   "انتخاب خوبی",
   "پیشنهاد مناسبی",
+];
+
+const GOODBYE_ANSWER_HINTS = [
+  "خدا نگهدار",
+  "خداحافظ",
+  "روز خوبی داشته باشید",
+  "روز خوش",
+  "ممنون که با من گفتگو کردید",
 ];
 
 
@@ -90,10 +102,11 @@ export function isActiveNetworkStatus(status) {
 export function getAssistantAvatarMood(message) {
   if (ASSISTANT_AVATAR_MOODS.includes(message?.avatarMood)) return message.avatarMood;
   if (message?.failed) return "careful";
-  if (message?.streaming) return "curious";
+  if (message?.streaming) return "thinking";
 
   const content = String(message?.content || "").trim();
   if (CAREFUL_ANSWER_HINTS.some((hint) => content.includes(hint))) return "careful";
+  if (GOODBYE_ANSWER_HINTS.some((hint) => content.includes(hint))) return "goodbye";
   if (HAPPY_ANSWER_HINTS.some((hint) => content.includes(hint))) return "happy";
   if (/[؟?]\s*$/.test(content)) return "curious";
   return "neutral";
@@ -408,7 +421,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         content: activeTurn.partialAnswer,
         local: true,
         streaming: true,
-        avatarMood: "curious",
+        avatarMood: "thinking",
       });
     } else if (activeTurn.status === "failed" && activeTurn.partialAnswer) {
       messages.push({
