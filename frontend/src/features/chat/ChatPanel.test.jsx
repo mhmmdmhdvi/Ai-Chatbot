@@ -35,6 +35,7 @@ import {
   COMPOSER_MIN_HEIGHT_PX,
   STARTER_QUESTIONS,
   createClientRequestId,
+  getAssistantAvatarMood,
   getComposerHeight,
   isActiveNetworkStatus,
   isNearMessageBottom,
@@ -130,6 +131,16 @@ describe("ChatPanel layout helpers", () => {
     expect(isActiveNetworkStatus(undefined)).toBe(false);
   });
 
+  it("maps conversation state and answer tone to deterministic adviser expressions", () => {
+    expect(getAssistantAvatarMood({ avatarMood: "greeting" })).toBe("greeting");
+    expect(getAssistantAvatarMood({ streaming: true })).toBe("curious");
+    expect(getAssistantAvatarMood({ failed: true })).toBe("careful");
+    expect(getAssistantAvatarMood({ content: "اطلاعات کافی درباره این مورد در اختیارم نیست." })).toBe("careful");
+    expect(getAssistantAvatarMood({ content: "بله، این محصول برای این کاربرد مناسب است." })).toBe("happy");
+    expect(getAssistantAvatarMood({ content: "جنس سطح موردنظر شما چیست؟" })).toBe("curious");
+    expect(getAssistantAvatarMood({ content: "زمان پخت اولیه ۱۲ ساعت است." })).toBe("neutral");
+  });
+
   it("uses explicit server retry guidance and safe transport fallbacks", () => {
     expect(isRetryableTurnError(new ApiError("try", 400, { retryable: true }))).toBe(true);
     expect(isRetryableTurnError(new ApiError("stop", 503, { retryable: false }))).toBe(false);
@@ -182,6 +193,8 @@ describe("ChatPanel turn experience", () => {
     );
     expect(screen.queryByText("می‌توانید گفتگو را با یکی از این سؤال‌ها شروع کنید:")).toBeNull();
     expect(screen.getByText("یک لحظه، دارم اطلاعات مرتبط را بررسی می‌کنم")).toBeTruthy();
+    expect(document.querySelector('.chat-status-pill')).toBeNull();
+    expect(document.querySelector('img[data-avatar-mood="curious"]')).not.toBeNull();
     expect(document.querySelector(".chat-surface").getAttribute("aria-busy")).toBe("true");
   });
 

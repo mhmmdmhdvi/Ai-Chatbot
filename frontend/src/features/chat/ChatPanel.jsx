@@ -2,6 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import customerAvatar from "../../assets/customer-avatar.webp";
 import customerGuideAvatar from "../../assets/customer-guide-avatar.webp";
+import customerGuideCareful from "../../assets/customer-guide-careful.webp";
+import customerGuideCurious from "../../assets/customer-guide-curious.webp";
+import customerGuideGreeting from "../../assets/customer-guide-greeting.webp";
+import customerGuideHappy from "../../assets/customer-guide-happy.webp";
 import Dialog from "../../components/Dialog";
 import { Icon } from "../../components/Icons";
 import MessageContent from "../../components/MessageContent";
@@ -15,11 +19,45 @@ export const MESSAGE_BOTTOM_THRESHOLD_PX = 96;
 export const COMPOSER_MIN_HEIGHT_PX = 56;
 export const COMPOSER_MAX_HEIGHT_PX = 128;
 export const ACTIVE_NETWORK_STATUSES = ["sending", "thinking", "streaming"];
+export const ASSISTANT_AVATAR_MOODS = ["neutral", "greeting", "curious", "happy", "careful"];
 export const STARTER_QUESTIONS = [
   "برای نمای ساختمان چه چسبی پیشنهاد می‌کنید؟",
   "تفاوت مگاتایت S و C چیست؟",
   "زمان پخت مگاتایت S در دمای ۲۵ درجه چقدر است؟",
   "برای نصب سنگ در فضای باز چه نکاتی مهم است؟",
+];
+
+const ASSISTANT_AVATAR_BY_MOOD = {
+  neutral: customerGuideAvatar,
+  greeting: customerGuideGreeting,
+  curious: customerGuideCurious,
+  happy: customerGuideHappy,
+  careful: customerGuideCareful,
+};
+
+const CAREFUL_ANSWER_HINTS = [
+  "اطلاعات کافی",
+  "در اختیارم نیست",
+  "در اختیار ندارم",
+  "در اختیار نیست",
+  "نیاز به بررسی",
+  "تأیید فنی",
+  "تأیید مهندس",
+  "مهندس سازه",
+  "ایمن‌سازی",
+  "مجاز نیست",
+  "توصیه نمی‌شود",
+  "اعلام نشده",
+  "مشخص نشده",
+];
+
+const HAPPY_ANSWER_HINTS = [
+  "بله،",
+  "بله؛",
+  "مناسب است",
+  "گزینه مناسبی",
+  "انتخاب خوبی",
+  "پیشنهاد مناسبی",
 ];
 
 
@@ -46,6 +84,19 @@ export function shouldSubmitOnEnter(event) {
 
 export function isActiveNetworkStatus(status) {
   return ACTIVE_NETWORK_STATUSES.includes(status);
+}
+
+
+export function getAssistantAvatarMood(message) {
+  if (ASSISTANT_AVATAR_MOODS.includes(message?.avatarMood)) return message.avatarMood;
+  if (message?.failed) return "careful";
+  if (message?.streaming) return "curious";
+
+  const content = String(message?.content || "").trim();
+  if (CAREFUL_ANSWER_HINTS.some((hint) => content.includes(hint))) return "careful";
+  if (HAPPY_ANSWER_HINTS.some((hint) => content.includes(hint))) return "happy";
+  if (/[؟?]\s*$/.test(content)) return "curious";
+  return "neutral";
 }
 
 
@@ -99,8 +150,25 @@ function ThinkingIndicator() {
 }
 
 
+function AssistantAvatar({ className, mood = "neutral" }) {
+  const safeMood = ASSISTANT_AVATAR_MOODS.includes(mood) ? mood : "neutral";
+
+  return (
+    <img
+      alt=""
+      aria-hidden="true"
+      className={`${className} assistant-avatar-mood assistant-avatar-mood-${safeMood}`}
+      data-avatar-mood={safeMood}
+      key={safeMood}
+      src={ASSISTANT_AVATAR_BY_MOOD[safeMood]}
+    />
+  );
+}
+
+
 function MessageBubble({ message }) {
   const customer = message.role === "customer";
+  const assistantMood = customer ? null : getAssistantAvatarMood(message);
   const time = !message.local && message.created_at
     ? new Intl.DateTimeFormat("fa-IR", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))
     : "";
@@ -108,11 +176,9 @@ function MessageBubble({ message }) {
   return (
     <article className={`message-row flex w-full min-w-0 items-end ${customer ? "justify-end" : "justify-start"}`} dir="ltr">
       {!customer && (
-        <img
-          alt=""
-          aria-hidden="true"
+        <AssistantAvatar
           className="message-avatar assistant-avatar shrink-0 object-contain object-bottom"
-          src={customerGuideAvatar}
+          mood={assistantMood}
         />
       )}
       <div
@@ -217,11 +283,9 @@ function IntakeScene({ busy, error, onStart, online }) {
   return (
     <main className="intake-stage mx-auto grid min-h-0 w-full max-w-6xl flex-1 place-items-center overflow-y-auto p-4 sm:p-8">
       <section className="intake-popover" aria-label="شروع گفتگوی مشتری">
-        <img
-          alt=""
-          aria-hidden="true"
+        <AssistantAvatar
           className="intake-character"
-          src={customerGuideAvatar}
+          mood="greeting"
         />
 
         <div className="intake-thought-card" aria-live="polite">
@@ -304,6 +368,14 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
 
   useEffect(() => () => streamControllerRef.current?.abort(), []);
 
+  useEffect(() => {
+    if (typeof globalThis.Image !== "function") return;
+    Object.values(ASSISTANT_AVATAR_BY_MOOD).forEach((source) => {
+      const image = new globalThis.Image();
+      image.src = source;
+    });
+  }, []);
+
   const handleIdleTimeout = useCallback(() => {
     const conversationId = conversation?.id;
     resetLocalFlow();
@@ -336,6 +408,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         content: activeTurn.partialAnswer,
         local: true,
         streaming: true,
+        avatarMood: "curious",
       });
     } else if (activeTurn.status === "failed" && activeTurn.partialAnswer) {
       messages.push({
@@ -344,6 +417,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         content: activeTurn.partialAnswer,
         failed: true,
         local: true,
+        avatarMood: "careful",
       });
     }
     return messages;
@@ -359,6 +433,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         content: "خیلی خوب، من آماده‌ام 😊\nچه سؤالی دارید؟",
         created_at: conversation.started_at,
         local: true,
+        avatarMood: "greeting",
       },
       ...(conversation.messages || []),
       ...pendingMessages,
@@ -550,11 +625,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
             : activeTurn?.status === "completed"
               ? "پاسخ آماده شد"
               : "";
-  const toolbarStatus = !online
-    ? { icon: "wifiOff", label: "بدون اتصال", tone: "offline" }
-    : activeNetworkTurn
-      ? { icon: "sparkles", label: statusText, tone: "busy" }
-      : null;
   const failedTurnPending = activeTurn?.status === "failed";
   const composerDisabled = activeNetworkTurn || failedTurnPending || !online;
   const composerPlaceholder = !online
@@ -582,13 +652,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
                   <Icon name="refresh" size={19} />
                   چت جدید
                 </button>
-                {toolbarStatus && (
-                  <div className={`chat-status-pill chat-status-${toolbarStatus.tone}`} dir="rtl">
-                    <Icon name={toolbarStatus.icon} size={17} />
-                    <span>{toolbarStatus.label}</span>
-                    {toolbarStatus.tone === "busy" && <i aria-hidden="true" />}
-                  </div>
-                )}
               </header>
 
               <div

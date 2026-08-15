@@ -106,7 +106,8 @@ describe("Persian kiosk application", () => {
     expect(screen.queryByRole("button", { name: "خروج اپراتور" })).toBeNull();
     const intakeCharacter = document.querySelector("img.intake-character");
     expect(intakeCharacter).not.toBeNull();
-    expect(intakeCharacter.getAttribute("src")).toContain("customer-guide-avatar");
+    expect(intakeCharacter.getAttribute("src")).toContain("customer-guide-greeting");
+    expect(intakeCharacter.getAttribute("data-avatar-mood")).toBe("greeting");
     expect(screen.queryByLabelText("پیام‌های گفتگو")).toBeNull();
   });
 
@@ -236,7 +237,8 @@ describe("Persian kiosk application", () => {
     expect(assistantMessageRow.className).toContain("justify-start");
     const assistantCharacter = assistantMessageRow.querySelector("img.assistant-avatar.message-avatar");
     expect(assistantCharacter).not.toBeNull();
-    expect(assistantCharacter.getAttribute("src")).toContain("customer-guide-avatar");
+    expect(assistantCharacter.getAttribute("src")).toContain("customer-guide-careful");
+    expect(assistantCharacter.getAttribute("data-avatar-mood")).toBe("careful");
     expect(assistantMessageRow.querySelector("img.customer-avatar")).toBeNull();
     const streamRequest = fetchMock.mock.calls.find(
       ([url, options = {}]) => url.endsWith("/messages/") && options.method === "POST",

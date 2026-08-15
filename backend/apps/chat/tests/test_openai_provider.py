@@ -57,6 +57,10 @@ class OpenAIProviderTests(SimpleTestCase):
         request = client.responses.create.call_args.kwargs
         self.assertEqual(request["model"], "test-model")
         self.assertEqual(request["max_output_tokens"], 500)
+        self.assertIn("مشاور هوشمند مگاتایت", request["instructions"])
+        self.assertIn("فروشنده حرفه‌ای", request["instructions"])
+        self.assertIn("فارسی روان", request["instructions"])
+        self.assertIn("نه فشار برای فروش", request["instructions"])
         self.assertIn("کاشت میلگرد", request["instructions"])
         self.assertIn("مهندس سازه", request["instructions"])
         self.assertFalse(request["store"])
