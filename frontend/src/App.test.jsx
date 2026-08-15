@@ -136,6 +136,46 @@ describe("Persian kiosk application", () => {
     expect(screen.queryByLabelText("صفحه گفتگو")).toBeNull();
   });
 
+  it("cancels first-question contact collection and closes the guest chat", async () => {
+    const conversation = {
+      id: "30d117a4-924c-4490-a202-5def926ad914",
+      customer: null,
+      status: "active",
+      language: "fa",
+      messages: [],
+      ai_status: "ready",
+    };
+    const fetchMock = vi.fn(async (url, options = {}) => {
+      if (url === "/api/v1/auth/me/") return jsonResponse(kioskUser);
+      if (url === "/api/v1/sessions/current/") return emptyResponse();
+      if (url === "/api/v1/sessions/" && options.method === "POST") {
+        return jsonResponse(conversation, 201);
+      }
+      if (url.endsWith("/messages/") && options.method === "POST") {
+        return eventStreamResponse([], 201);
+      }
+      if (url.endsWith("/close/") && options.method === "POST") return emptyResponse();
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "شروع" }));
+    await user.click(await screen.findByRole("button", { name: "مگاتایت رو معرفی کن" }));
+    await user.click(screen.getByRole("button", { name: "منصرف شدم" }));
+
+    expect(await screen.findByRole("heading", {
+      name: "سلام، من مشاور هوشمند مگاتایت هستم.",
+    })).toBeTruthy();
+    await waitFor(() => expect(fetchMock.mock.calls.some(
+      ([url, options = {}]) => url.endsWith("/close/") && options.method === "POST",
+    )).toBe(true));
+    expect(fetchMock.mock.calls.some(
+      ([url, options = {}]) => url.endsWith("/customer/") && options.method === "PATCH",
+    )).toBe(false);
+  });
+
   it("collects customer details after the first question, stores the chat, and clears it for the next customer", async () => {
     const conversation = {
       id: "30d117a4-924c-4490-a202-5def926ad914",
@@ -231,9 +271,10 @@ describe("Persian kiosk application", () => {
     await user.click(screen.getByRole("button", { name: "ارسال پیام" }));
 
     const contactDialog = await screen.findByRole("dialog", {
-      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+      name: "برای ادامه لطفا نام و شماره تماس خود را وارد کنید",
     });
     expect(contactDialog.parentElement.className).toContain("backdrop-blur-md");
+    expect(screen.getByRole("button", { name: "منصرف شدم" })).toBeTruthy();
     await waitFor(() => expect(fetchMock.mock.calls.some(
       ([url]) => url.endsWith("/messages/"),
     )).toBe(true));
@@ -242,7 +283,7 @@ describe("Persian kiosk application", () => {
     await user.click(screen.getByRole("button", { name: "ثبت و مشاهده پاسخ" }));
 
     expect(screen.queryByRole("dialog", {
-      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+      name: "برای ادامه لطفا نام و شماره تماس خود را وارد کنید",
     })).toBeNull();
 
     const message = await screen.findByText("قیمت مدل X200 چقدر است؟");

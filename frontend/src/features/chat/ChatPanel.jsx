@@ -24,8 +24,8 @@ export const ACTIVE_NETWORK_STATUSES = ["sending", "thinking", "streaming"];
 export const ASSISTANT_AVATAR_MOODS = ["neutral", "greeting", "curious", "thinking", "happy", "careful", "goodbye"];
 export const STARTER_QUESTIONS = [
   "برای نمای ساختمان چه چسبی پیشنهاد می‌کنید؟",
-  "تفاوت مگاتایت S و C چیست؟",
-  "زمان پخت مگاتایت S در دمای ۲۵ درجه چقدر است؟",
+  "مگاتایت رو معرفی کن",
+  "مگاتایت چه کمکی به من میکند؟",
   "برای نصب سنگ در فضای باز چه نکاتی مهم است؟",
 ];
 
@@ -459,7 +459,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
       {
         id: `conversation-${conversation.id}-welcome`,
         role: "assistant",
-        content: "خیلی خوب، من آماده‌ام 😊\nچه سؤالی دارید؟",
+        content: "خیلی خوب، من آماده‌ام 😊\nبرای شروع یکی از سوالات زیر رو انتخاب کنید",
         created_at: conversation.started_at,
         local: true,
         avatarMood: "greeting",
@@ -542,6 +542,11 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         { content: trimmedQuestion, clientRequestId: requestId },
         {
           onCustomer: ({ message }) => {
+            if (
+              controller.signal.aborted
+              || streamControllerRef.current !== controller
+              || conversationRef.current?.id !== turnConversation.id
+            ) return;
             savedCustomerMessage = message;
             setActiveTurn((current) => current?.requestId === requestId ? {
               ...current,
@@ -550,6 +555,11 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
             } : current);
           },
           onDelta: (delta) => {
+            if (
+              controller.signal.aborted
+              || streamControllerRef.current !== controller
+              || conversationRef.current?.id !== turnConversation.id
+            ) return;
             partialAnswer += delta;
             setActiveTurn((current) => current?.requestId === requestId ? {
               ...current,
@@ -560,6 +570,11 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         },
         controller.signal,
       );
+      if (
+        controller.signal.aborted
+        || streamControllerRef.current !== controller
+        || conversationRef.current?.id !== turnConversation.id
+      ) return;
       const finalCustomerMessage = savedCustomerMessage || result.customer_message;
       const latestConversation = conversationRef.current?.id === turnConversation.id
         ? conversationRef.current
@@ -581,7 +596,12 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         partialAnswer: result.assistant_message?.content || partialAnswer,
       } : current);
     } catch (requestError) {
-      if (requestError.name === "AbortError") return;
+      if (
+        requestError.name === "AbortError"
+        || controller.signal.aborted
+        || streamControllerRef.current !== controller
+        || conversationRef.current?.id !== turnConversation.id
+      ) return;
       if (requestError instanceof ApiError && [401, 403].includes(requestError.status)) {
         onSessionExpired();
         return;
@@ -663,6 +683,13 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
       setContactSaving(false);
     }
   };
+
+  const cancelContactAndReturnToStart = useCallback(() => {
+    const conversationId = conversationRef.current?.id;
+    conversationRef.current = null;
+    resetLocalFlow();
+    onReset(conversationId);
+  }, [onReset, resetLocalFlow]);
 
   const submitMessage = (event) => {
     event.preventDefault();
@@ -804,13 +831,14 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
 
       <Dialog
         busy={contactSaving}
+        cancelLabel="منصرف شدم"
         confirmLabel="ثبت و مشاهده پاسخ"
         dismissible={false}
         initialFocusRef={contactNameRef}
+        onCancel={cancelContactAndReturnToStart}
         onConfirm={saveCustomerAndReveal}
         open={contactOpen}
-        showCancel={false}
-        title="برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید"
+        title="برای ادامه لطفا نام و شماره تماس خود را وارد کنید"
         tone="primary"
       >
         <div className="space-y-4" dir="rtl">

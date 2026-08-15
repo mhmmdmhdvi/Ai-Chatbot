@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -56,9 +56,16 @@ const baseConversation = {
   messages: [],
 };
 
+const noopReset = () => {};
 
-function ChatHarness({ online = true, initialConversation = baseConversation }) {
+
+function ChatHarness({ online = true, initialConversation = baseConversation, onReset = noopReset }) {
   const [conversation, setConversation] = useState(initialConversation);
+
+  const resetConversation = useCallback((conversationId) => {
+    setConversation(null);
+    onReset(conversationId);
+  }, [onReset]);
 
   return (
     <ChatPanel
@@ -66,7 +73,7 @@ function ChatHarness({ online = true, initialConversation = baseConversation }) 
       online={online}
       onConversationChange={setConversation}
       onNewCustomer={vi.fn()}
-      onReset={vi.fn()}
+      onReset={resetConversation}
       onSessionExpired={vi.fn()}
     />
   );
@@ -194,12 +201,13 @@ describe("ChatPanel turn experience", () => {
     await user.click(screen.getByRole("button", { name: STARTER_QUESTIONS[0] }));
 
     const contactDialog = screen.getByRole("dialog", {
-      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+      name: "برای ادامه لطفا نام و شماره تماس خود را وارد کنید",
     });
     expect(contactDialog).toBeTruthy();
     expect(contactDialog.parentElement.className).toContain("backdrop-blur-md");
     expect(screen.queryByRole("button", { name: "بستن" })).toBeNull();
     expect(screen.queryByRole("button", { name: "فعلاً نه" })).toBeNull();
+    expect(screen.getByRole("button", { name: "منصرف شدم" })).toBeTruthy();
     await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1));
     expect(apiMocks.saveCustomer).not.toHaveBeenCalled();
 
@@ -214,7 +222,7 @@ describe("ChatPanel turn experience", () => {
     expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1);
     expect(apiMocks.sendMessageStream.mock.calls[0][1].content).toBe(STARTER_QUESTIONS[0]);
     expect(screen.queryByRole("dialog", {
-      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+      name: "برای ادامه لطفا نام و شماره تماس خود را وارد کنید",
     })).toBeNull();
   });
 
@@ -236,7 +244,7 @@ describe("ChatPanel turn experience", () => {
     await user.click(screen.getByRole("button", { name: "ارسال پیام" }));
 
     expect(screen.getByRole("dialog", {
-      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+      name: "برای ادامه لطفا نام و شماره تماس خود را وارد کنید",
     })).toBeTruthy();
     expect(screen.getByLabelText("متن پیام").value).toBe("");
     await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1));
@@ -248,8 +256,73 @@ describe("ChatPanel turn experience", () => {
     expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1);
     expect(apiMocks.sendMessageStream.mock.calls[0][1].content).toBe("مگاتایت C چیست؟");
     expect(screen.queryByRole("dialog", {
-      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+      name: "برای ادامه لطفا نام و شماره تماس خود را وارد کنید",
     })).toBeNull();
+  });
+
+  it("cancels first-question collection, aborts generation, and returns to the start page", async () => {
+    const guestConversation = { ...baseConversation, customer: null };
+    const onReset = vi.fn();
+    let streamSignal;
+    apiMocks.sendMessageStream.mockImplementation((_conversationId, _payload, _handlers, signal) => {
+      streamSignal = signal;
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => {
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        });
+      });
+    });
+    const user = userEvent.setup();
+    render(<ChatHarness initialConversation={guestConversation} onReset={onReset} />);
+
+    await user.click(screen.getByRole("button", { name: STARTER_QUESTIONS[1] }));
+    expect(screen.getByRole("dialog", {
+      name: "برای ادامه لطفا نام و شماره تماس خود را وارد کنید",
+    })).toBeTruthy();
+    await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1));
+
+    await user.click(screen.getByRole("button", { name: "منصرف شدم" }));
+
+    expect(streamSignal.aborted).toBe(true);
+    expect(onReset).toHaveBeenCalledWith(guestConversation.id);
+    expect(screen.queryByRole("dialog", {
+      name: "برای ادامه لطفا نام و شماره تماس خود را وارد کنید",
+    })).toBeNull();
+    expect(screen.getByRole("button", { name: "شروع" })).toBeTruthy();
+    expect(apiMocks.saveCustomer).not.toHaveBeenCalled();
+  });
+
+  it("ignores a first response that resolves after contact collection is cancelled", async () => {
+    const guestConversation = { ...baseConversation, customer: null };
+    let resolveStream;
+    apiMocks.sendMessageStream.mockImplementation(() => new Promise((resolve) => {
+      resolveStream = resolve;
+    }));
+    const user = userEvent.setup();
+    render(<ChatHarness initialConversation={guestConversation} />);
+
+    await user.click(screen.getByRole("button", { name: STARTER_QUESTIONS[2] }));
+    await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("button", { name: "منصرف شدم" }));
+
+    resolveStream({
+      customer_message: {
+        id: "late-customer",
+        role: "customer",
+        content: STARTER_QUESTIONS[2],
+      },
+      assistant_message: {
+        id: "late-assistant",
+        role: "assistant",
+        content: "این پاسخ دیرهنگام نباید نمایش داده شود.",
+      },
+    });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "شروع" })).toBeTruthy());
+    expect(screen.queryByText(STARTER_QUESTIONS[2])).toBeNull();
+    expect(screen.queryByText("این پاسخ دیرهنگام نباید نمایش داده شود.")).toBeNull();
   });
 
   it("offers starter questions once and blocks a duplicate send while thinking", async () => {
@@ -265,6 +338,15 @@ describe("ChatPanel turn experience", () => {
       return new Promise(() => {});
     });
     render(<ChatHarness />);
+
+    expect(screen.getByText((content, element) => (
+      element.tagName === "P"
+      && content.includes("برای شروع یکی از سوالات زیر رو انتخاب کنید")
+    ))).toBeTruthy();
+    expect(screen.getByRole("button", { name: "مگاتایت رو معرفی کن" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "مگاتایت چه کمکی به من میکند؟" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "تفاوت مگاتایت S و C چیست؟" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "زمان پخت مگاتایت S در دمای ۲۵ درجه چقدر است؟" })).toBeNull();
 
     const firstPrompt = screen.getByRole("button", { name: STARTER_QUESTIONS[0] });
     const secondPrompt = screen.getByRole("button", { name: STARTER_QUESTIONS[1] });
