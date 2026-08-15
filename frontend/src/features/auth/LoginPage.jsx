@@ -40,8 +40,8 @@ export default function LoginPage({ onLogin }) {
   };
 
   return (
-    <main className="app-background grid min-h-screen place-items-center p-4 sm:p-8">
-      <section className="grid min-w-0 w-full max-w-6xl overflow-hidden rounded-[2.25rem] bg-white shadow-2xl shadow-slate-900/10 ring-1 ring-slate-900/5 lg:min-h-[720px] lg:grid-cols-[1.05fr_.95fr]">
+    <main className="login-stage app-background grid min-h-dvh place-items-center overflow-y-auto">
+      <section className="login-shell grid min-w-0 w-full max-w-6xl overflow-hidden rounded-[2.25rem] bg-white shadow-2xl shadow-slate-900/10 ring-1 ring-slate-900/5 lg:grid-cols-[1.05fr_.95fr]">
         <div className="login-brand-banner hidden lg:block">
           <img
             alt=""
@@ -54,8 +54,8 @@ export default function LoginPage({ onLogin }) {
           </div>
         </div>
 
-        <div className="flex min-w-0 items-center px-6 py-10 sm:px-12 lg:px-16">
-          <div className="mx-auto min-w-0 w-full max-w-md">
+        <div className="login-form-panel flex min-w-0 items-center px-6 py-10 sm:px-12 lg:px-16">
+          <div className="login-form-content mx-auto min-w-0 w-full max-w-md">
             <div className="mb-9">
               <h1 className="text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">ورود</h1>
             </div>

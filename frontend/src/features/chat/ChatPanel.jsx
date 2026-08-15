@@ -761,7 +761,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
           online={online}
         />
       ) : (
-        <main className="chat-stage mx-auto flex min-h-0 w-full max-w-[88rem] flex-1 flex-col overflow-hidden p-2.5 sm:p-5 lg:p-7">
+        <main className="chat-stage mx-auto flex min-h-0 w-full flex-1 flex-col overflow-hidden p-2.5 sm:p-5 lg:p-7">
           <p className="sr-only" aria-atomic="true" aria-live="polite" role="status">{statusText}</p>
           <div className="chat-frame flex min-h-0 flex-1">
             <section aria-busy={activeNetworkTurn} className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[2rem]">

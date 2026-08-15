@@ -24,12 +24,12 @@ export default function Dialog({ open, title, description, confirmLabel, cancelL
     : "bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-500";
 
   return createPortal(
-    <div className="dialog-backdrop fixed inset-0 z-50 grid place-items-center bg-slate-950/50 p-5 backdrop-blur-md" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && dismissible && !busy && onCancel()}>
+    <div className="dialog-backdrop fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/50 p-5 backdrop-blur-md" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && dismissible && !busy && onCancel()}>
       <section
         aria-describedby={description ? "dialog-description" : undefined}
         aria-labelledby="dialog-title"
         aria-modal="true"
-        className="w-full max-w-md rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8"
+        className="dialog-panel w-full max-w-md overflow-y-auto rounded-[2rem] bg-white p-6 shadow-2xl sm:p-8"
         role="dialog"
       >
         <div className="mb-5 flex items-start justify-between gap-4">
@@ -44,7 +44,7 @@ export default function Dialog({ open, title, description, confirmLabel, cancelL
           )}
         </div>
         {children}
-        <div className={`mt-7 grid gap-3 ${showCancel ? "grid-cols-2" : "grid-cols-1"}`}>
+        <div className={`dialog-actions mt-7 grid gap-3 ${showCancel ? "grid-cols-2" : "grid-cols-1"}`}>
           {showCancel && (
             <button className="touch-button rounded-2xl border border-slate-200 bg-white px-4 font-bold text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-400 disabled:opacity-40" disabled={busy} onClick={onCancel} type="button">
               {cancelLabel}

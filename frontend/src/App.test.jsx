@@ -56,6 +56,9 @@ describe("Persian kiosk application", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "ورود" })).toBeTruthy();
+    expect(document.querySelector("main.login-stage").className).toContain("overflow-y-auto");
+    expect(document.querySelector("section.login-shell")).not.toBeNull();
+    expect(document.querySelector(".login-brand-banner")).not.toBeNull();
     expect(screen.getByAltText("Megatite")).toBeTruthy();
     expect(screen.queryByText("دروازه ورود کیوسک")).toBeNull();
     expect(screen.queryByText("برای فعال‌سازی دستیار، وارد حساب کاربری کیوسک شوید.")).toBeNull();
@@ -274,6 +277,9 @@ describe("Persian kiosk application", () => {
       name: "برای ادامه لطفا نام و شماره تماس خود را وارد کنید",
     });
     expect(contactDialog.parentElement.className).toContain("backdrop-blur-md");
+    expect(contactDialog.parentElement.className).toContain("overflow-y-auto");
+    expect(contactDialog.className).toContain("dialog-panel");
+    expect(contactDialog.className).toContain("overflow-y-auto");
     expect(screen.getByRole("button", { name: "منصرف شدم" })).toBeTruthy();
     await waitFor(() => expect(fetchMock.mock.calls.some(
       ([url]) => url.endsWith("/messages/"),

@@ -63,6 +63,21 @@ textarea:focus-visible {
   background-color: var(--megatite-midnight);
 }
 
+.login-stage {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding:
+    max(clamp(0.75rem, 3vmin, 2rem), env(safe-area-inset-top))
+    max(clamp(0.75rem, 3vmin, 2rem), env(safe-area-inset-right))
+    max(clamp(0.75rem, 3vmin, 2rem), env(safe-area-inset-bottom))
+    max(clamp(0.75rem, 3vmin, 2rem), env(safe-area-inset-left));
+  overscroll-behavior: contain;
+}
+
+.login-shell {
+  min-height: 0;
+}
+
 .gradient-world {
   position: relative;
   isolation: isolate;
@@ -264,7 +279,7 @@ textarea:focus-visible {
 .login-brand-banner {
   position: relative;
   isolation: isolate;
-  min-height: 720px;
+  min-height: 0;
   overflow: hidden;
   background: #020b18;
 }
@@ -590,6 +605,10 @@ textarea:focus-visible {
   position: relative;
   isolation: isolate;
   perspective: 1200px;
+}
+
+.chat-stage {
+  max-width: min(96rem, 96vw);
 }
 
 .chat-frame::before {
@@ -1004,6 +1023,12 @@ textarea:focus-visible {
   background: rgb(148 163 184 / 48%);
 }
 
+.dialog-panel {
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
+  overscroll-behavior: contain;
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -1168,6 +1193,36 @@ textarea:focus-visible {
   }
 }
 
+@media (min-width: 1024px) {
+  .login-shell {
+    height: clamp(34rem, calc(100dvh - 2rem), 45rem);
+  }
+
+  .login-brand-banner {
+    height: 100%;
+  }
+}
+
+@media (min-width: 2200px) and (min-height: 1000px) {
+  :root {
+    font-size: 18px;
+  }
+
+  .login-shell {
+    width: min(126rem, 86vw);
+    max-width: none;
+    height: min(56rem, calc(100dvh - 4rem));
+  }
+
+  .login-form-content {
+    max-width: 34rem;
+  }
+
+  .chat-stage {
+    max-width: min(112rem, 94vw);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1179,24 +1234,20 @@ textarea:focus-visible {
   }
 }
 
-@media (max-width: 639px) {
-  .chat-stage {
-    padding-right: max(0.625rem, env(safe-area-inset-right));
-    padding-left: max(0.625rem, env(safe-area-inset-left));
-  }
-
+@media (max-width: 900px) {
   .intake-popover {
     position: relative;
     display: block;
-    padding-top: 4.75rem;
+    max-width: 38rem;
+    padding-top: clamp(4.5rem, 17vw, 7rem);
   }
 
   .intake-character {
     position: absolute;
     z-index: 2;
     top: 0;
-    right: 0.75rem;
-    width: 9.25rem;
+    right: clamp(0.75rem, 7vw, 3rem);
+    width: clamp(9.25rem, 27vw, 13rem);
     margin: 0;
     transform: rotateY(-3deg);
   }
@@ -1209,13 +1260,38 @@ textarea:focus-visible {
     width: 100%;
     max-width: none;
     border-radius: 1.6rem;
-    padding: 5rem 1.15rem 1.15rem;
+    padding: clamp(4.75rem, 15vw, 6.75rem) clamp(1.15rem, 4vw, 2rem) clamp(1.15rem, 4vw, 2rem);
   }
 
   .intake-thought-card::after {
     top: -0.65rem;
-    right: 4.8rem;
+    right: clamp(4.8rem, 18vw, 8rem);
     transform: rotate(-45deg);
+  }
+}
+
+@media (orientation: portrait) and (min-width: 1024px) and (max-width: 1199px) {
+  .login-shell {
+    width: min(38rem, calc(100vw - 4rem));
+    max-width: 38rem;
+    height: auto;
+    min-height: 34rem;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .login-brand-banner {
+    display: none;
+  }
+
+  .login-form-panel {
+    min-height: 34rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .chat-stage {
+    padding-right: max(0.625rem, env(safe-area-inset-right));
+    padding-left: max(0.625rem, env(safe-area-inset-left));
   }
 
   .ambient-sphere-one {
@@ -1327,6 +1403,37 @@ textarea:focus-visible {
   }
 }
 
+@media (max-width: 440px) {
+  .dialog-backdrop {
+    place-items: start center;
+    padding:
+      max(0.75rem, env(safe-area-inset-top))
+      max(0.75rem, env(safe-area-inset-right))
+      max(0.75rem, env(safe-area-inset-bottom))
+      max(0.75rem, env(safe-area-inset-left));
+  }
+
+  .dialog-panel {
+    max-height: calc(100dvh - 1.5rem);
+    border-radius: 1.4rem;
+    padding: 1.15rem;
+  }
+
+  .dialog-actions.grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .message-avatar {
+    width: 2.8rem;
+    height: 2.8rem;
+  }
+
+  .message-bubble,
+  .message-customer {
+    max-width: calc(100% - 3.3rem);
+  }
+}
+
 @media (max-height: 720px) and (min-width: 640px) {
   .chat-stage {
     padding: 0.65rem 1rem;
@@ -1353,5 +1460,30 @@ textarea:focus-visible {
   .composer-dock {
     padding-top: 0.6rem;
     padding-bottom: max(0.6rem, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-height: 600px) {
+  .intake-stage {
+    place-items: start center;
+    padding-block: 0.75rem;
+  }
+
+  .chat-stage {
+    padding-block: 0.4rem;
+  }
+
+  .chat-toolbar {
+    min-height: 3.5rem;
+    padding-block: 0.35rem;
+  }
+
+  .composer-dock {
+    padding-top: 0.45rem;
+    padding-bottom: max(0.45rem, env(safe-area-inset-bottom));
+  }
+
+  .dialog-panel {
+    padding-block: 1rem;
   }
 }
