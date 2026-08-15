@@ -90,7 +90,12 @@ function parseEventBlock(block) {
 }
 
 
-async function sendMessageStream(conversationId, content, handlers = {}, signal) {
+async function sendMessageStream(
+  conversationId,
+  { content, clientRequestId },
+  handlers = {},
+  signal,
+) {
   const headers = {
     Accept: "text/event-stream, application/json",
     "Content-Type": "application/json",
@@ -104,7 +109,10 @@ async function sendMessageStream(conversationId, content, handlers = {}, signal)
       method: "POST",
       headers,
       credentials: "same-origin",
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({
+        content,
+        client_request_id: clientRequestId,
+      }),
       signal,
     });
   } catch (error) {

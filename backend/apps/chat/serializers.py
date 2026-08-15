@@ -1,3 +1,5 @@
+import uuid
+
 import phonenumbers
 from django.conf import settings
 from rest_framework import serializers
@@ -54,12 +56,13 @@ class CustomerSessionSerializer(serializers.Serializer):
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message
-        fields = ("id", "role", "content", "created_at")
+        fields = ("id", "client_request_id", "role", "content", "created_at")
         read_only_fields = fields
 
 
 class CreateMessageSerializer(serializers.Serializer):
     content = serializers.CharField(max_length=2000, trim_whitespace=True)
+    client_request_id = serializers.UUIDField(default=uuid.uuid4)
 
     def validate_content(self, value):
         if not value:

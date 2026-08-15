@@ -1,9 +1,12 @@
+from datetime import timedelta
 import json
+import uuid
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.chat.ai import AICompletion, AIProviderError, AIStreamEvent
@@ -63,6 +66,35 @@ class FailingAIProvider:
             category="connection",
             user_message="سرویس پاسخ‌گویی موقتاً در دسترس نیست.",
             retryable=True,
+        )
+
+
+class SupersededAIProvider:
+    name = "test-provider"
+    model = "test-persian-model"
+
+    def __init__(self):
+        self.expired_at = None
+
+    def stream_response(self, messages):
+        yield AIStreamEvent(type="delta", delta="پاسخ دیرهنگام")
+        self.expired_at = timezone.now()
+        AIResponseLog.objects.filter(status=AIResponseLog.Status.PENDING).update(
+            status=AIResponseLog.Status.FAILED,
+            error_category="request_lease_expired",
+            latency_ms=180_000,
+            completed_at=self.expired_at,
+        )
+        yield AIStreamEvent(
+            type="completed",
+            completion=AICompletion(
+                provider_response_id="response-superseded-1",
+                request_id="request-superseded-1",
+                model=self.model,
+                input_tokens=31,
+                output_tokens=11,
+                total_tokens=42,
+            ),
         )
 
 
@@ -374,6 +406,272 @@ class ChatApiTests(TestCase):
         response_log = AIResponseLog.objects.get()
         self.assertEqual(response_log.status, AIResponseLog.Status.FAILED)
         self.assertEqual(response_log.error_category, "connection")
+
+    @override_settings(AI_PROVIDER="openai", OPENAI_API_KEY="test-key")
+    def test_failed_request_retry_keeps_immutable_attempt_logs(self):
+        conversation_id = self.create_session().data["id"]
+        client_request_id = uuid.uuid4()
+        url = reverse("chat:conversation-messages", args=(conversation_id,))
+        payload = {
+            "content": "یک پرسش قابل تلاش دوباره",
+            "client_request_id": str(client_request_id),
+        }
+
+        with patch("apps.chat.streaming.get_ai_provider", return_value=FailingAIProvider()):
+            first_response = self.client.post(url, payload, format="json")
+            first_events = read_sse_events(first_response)
+
+        customer_message = Message.objects.get(role=Message.Role.CUSTOMER)
+        first_attempt = AIResponseLog.objects.get()
+        original_message_id = customer_message.id
+        first_attempt_snapshot = (
+            first_attempt.status,
+            first_attempt.error_category,
+            first_attempt.completed_at,
+        )
+
+        self.assertEqual(first_response.status_code, 201)
+        self.assertEqual(first_events[-1][0], "error")
+        self.assertEqual(first_attempt.status, AIResponseLog.Status.FAILED)
+        self.assertEqual(customer_message.client_request_id, client_request_id)
+
+        with patch(
+            "apps.chat.streaming.get_ai_provider",
+            return_value=SuccessfulAIProvider(),
+        ):
+            retry_response = self.client.post(url, payload, format="json")
+            retry_events = read_sse_events(retry_response)
+
+        self.assertEqual(retry_response.status_code, 200)
+        self.assertEqual(
+            [name for name, _ in retry_events],
+            ["customer", "delta", "delta", "completed"],
+        )
+        self.assertEqual(Message.objects.filter(role=Message.Role.CUSTOMER).count(), 1)
+        self.assertEqual(AIResponseLog.objects.count(), 2)
+        self.assertEqual(Message.objects.get(role=Message.Role.CUSTOMER).id, original_message_id)
+        first_attempt.refresh_from_db()
+        self.assertEqual(
+            (
+                first_attempt.status,
+                first_attempt.error_category,
+                first_attempt.completed_at,
+            ),
+            first_attempt_snapshot,
+        )
+        completed_attempt = AIResponseLog.objects.get(
+            status=AIResponseLog.Status.COMPLETED
+        )
+        self.assertNotEqual(completed_attempt.id, first_attempt.id)
+        self.assertEqual(completed_attempt.error_category, "")
+        self.assertEqual(completed_attempt.total_tokens, 30)
+
+    @override_settings(AI_PROVIDER="openai", OPENAI_API_KEY="test-key")
+    def test_completed_request_is_replayed_without_another_provider_call(self):
+        conversation_id = self.create_session().data["id"]
+        client_request_id = uuid.uuid4()
+        url = reverse("chat:conversation-messages", args=(conversation_id,))
+        payload = {
+            "content": "پاسخ این درخواست فقط یک بار ساخته شود",
+            "client_request_id": str(client_request_id),
+        }
+
+        with patch(
+            "apps.chat.streaming.get_ai_provider",
+            return_value=SuccessfulAIProvider(),
+        ):
+            first_response = self.client.post(url, payload, format="json")
+            first_events = read_sse_events(first_response)
+
+        with patch("apps.chat.streaming.get_ai_provider") as get_provider:
+            replay_response = self.client.post(url, payload, format="json")
+            replay_events = read_sse_events(replay_response)
+
+        get_provider.assert_not_called()
+        self.assertEqual(first_response.status_code, 201)
+        self.assertEqual(replay_response.status_code, 200)
+        self.assertEqual(first_events[-1][0], "completed")
+        self.assertEqual(
+            [name for name, _ in replay_events],
+            ["customer", "completed"],
+        )
+        self.assertTrue(replay_events[0][1]["replayed"])
+        self.assertTrue(replay_events[-1][1]["replayed"])
+        self.assertEqual(Message.objects.filter(role=Message.Role.CUSTOMER).count(), 1)
+        self.assertEqual(Message.objects.filter(role=Message.Role.ASSISTANT).count(), 1)
+        self.assertEqual(AIResponseLog.objects.count(), 1)
+        self.assertEqual(AIResponseLog.objects.get().total_tokens, 30)
+
+    @override_settings(AI_PROVIDER="disabled", OPENAI_API_KEY="")
+    def test_reusing_request_id_with_different_content_is_rejected(self):
+        conversation_id = self.create_session().data["id"]
+        client_request_id = uuid.uuid4()
+        url = reverse("chat:conversation-messages", args=(conversation_id,))
+
+        first_response = self.client.post(
+            url,
+            {
+                "content": "پیام اصلی",
+                "client_request_id": str(client_request_id),
+            },
+            format="json",
+        )
+        read_sse_events(first_response)
+        conflict_response = self.client.post(
+            url,
+            {
+                "content": "متن متفاوت",
+                "client_request_id": str(client_request_id),
+            },
+            format="json",
+        )
+
+        self.assertEqual(conflict_response.status_code, 409)
+        self.assertEqual(conflict_response.data["code"], "request_content_conflict")
+        self.assertFalse(conflict_response.data["retryable"])
+        self.assertEqual(Message.objects.filter(role=Message.Role.CUSTOMER).count(), 1)
+        self.assertEqual(AIResponseLog.objects.count(), 1)
+
+    @override_settings(AI_PROVIDER="disabled", OPENAI_API_KEY="")
+    def test_same_content_with_different_request_ids_creates_two_requests(self):
+        conversation_id = self.create_session().data["id"]
+        url = reverse("chat:conversation-messages", args=(conversation_id,))
+        content = "این پرسش عمداً دوبار ارسال می‌شود"
+
+        for client_request_id in (uuid.uuid4(), uuid.uuid4()):
+            response = self.client.post(
+                url,
+                {
+                    "content": content,
+                    "client_request_id": str(client_request_id),
+                },
+                format="json",
+            )
+            self.assertEqual(response.status_code, 201)
+            read_sse_events(response)
+
+        self.assertEqual(Message.objects.filter(role=Message.Role.CUSTOMER).count(), 2)
+        self.assertEqual(AIResponseLog.objects.count(), 2)
+
+    @override_settings(AI_PROVIDER="openai", OPENAI_API_KEY="test-key")
+    def test_pending_duplicate_request_returns_retryable_conflict(self):
+        conversation_id = self.create_session().data["id"]
+        conversation = Conversation.objects.get(pk=conversation_id)
+        client_request_id = uuid.uuid4()
+        message = Message.objects.create(
+            conversation=conversation,
+            client_request_id=client_request_id,
+            role=Message.Role.CUSTOMER,
+            content="درخواست در حال پردازش",
+        )
+        AIResponseLog.objects.create(
+            conversation=conversation,
+            customer_message=message,
+            provider="test-provider",
+            model="test-model",
+        )
+
+        response = self.client.post(
+            reverse("chat:conversation-messages", args=(conversation_id,)),
+            {
+                "content": message.content,
+                "client_request_id": str(client_request_id),
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data["code"], "request_in_progress")
+        self.assertTrue(response.data["retryable"])
+        self.assertEqual(Message.objects.filter(role=Message.Role.CUSTOMER).count(), 1)
+        self.assertEqual(AIResponseLog.objects.count(), 1)
+
+    @override_settings(
+        AI_PROVIDER="openai",
+        OPENAI_API_KEY="test-key",
+        AI_RESPONSE_PENDING_LEASE_SECONDS=180,
+    )
+    def test_stale_pending_request_is_failed_and_retried_with_new_attempt(self):
+        conversation_id = self.create_session().data["id"]
+        conversation = Conversation.objects.get(pk=conversation_id)
+        client_request_id = uuid.uuid4()
+        message = Message.objects.create(
+            conversation=conversation,
+            client_request_id=client_request_id,
+            role=Message.Role.CUSTOMER,
+            content="درخواست رهاشده",
+        )
+        stale_attempt = AIResponseLog.objects.create(
+            conversation=conversation,
+            customer_message=message,
+            provider="test-provider",
+            model="test-model",
+        )
+        stale_created_at = timezone.now() - timedelta(seconds=181)
+        AIResponseLog.objects.filter(pk=stale_attempt.pk).update(
+            created_at=stale_created_at
+        )
+
+        with patch(
+            "apps.chat.streaming.get_ai_provider",
+            return_value=SuccessfulAIProvider(),
+        ):
+            response = self.client.post(
+                reverse("chat:conversation-messages", args=(conversation_id,)),
+                {
+                    "content": message.content,
+                    "client_request_id": str(client_request_id),
+                },
+                format="json",
+            )
+            events = read_sse_events(response)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(events[-1][0], "completed")
+        self.assertEqual(Message.objects.filter(role=Message.Role.CUSTOMER).count(), 1)
+        self.assertEqual(Message.objects.filter(role=Message.Role.ASSISTANT).count(), 1)
+        self.assertEqual(AIResponseLog.objects.count(), 2)
+        stale_attempt.refresh_from_db()
+        self.assertEqual(stale_attempt.status, AIResponseLog.Status.FAILED)
+        self.assertEqual(stale_attempt.error_category, "request_lease_expired")
+        self.assertIsNotNone(stale_attempt.completed_at)
+        self.assertGreaterEqual(stale_attempt.latency_ms, 181_000)
+        fresh_attempt = AIResponseLog.objects.exclude(pk=stale_attempt.pk).get()
+        self.assertEqual(fresh_attempt.status, AIResponseLog.Status.COMPLETED)
+        self.assertEqual(fresh_attempt.total_tokens, 30)
+
+    @override_settings(AI_PROVIDER="openai", OPENAI_API_KEY="test-key")
+    def test_superseded_completion_preserves_failure_and_records_billed_usage(self):
+        conversation_id = self.create_session().data["id"]
+        provider = SupersededAIProvider()
+
+        with patch("apps.chat.streaming.get_ai_provider", return_value=provider):
+            response = self.client.post(
+                reverse("chat:conversation-messages", args=(conversation_id,)),
+                {
+                    "content": "پاسخی که پس از انقضای تلاش می‌رسد",
+                    "client_request_id": str(uuid.uuid4()),
+                },
+                format="json",
+            )
+            events = read_sse_events(response)
+
+        self.assertEqual(
+            [name for name, _ in events],
+            ["customer", "delta", "error"],
+        )
+        self.assertEqual(events[-1][1]["code"], "request_attempt_superseded")
+        self.assertEqual(Message.objects.filter(role=Message.Role.ASSISTANT).count(), 0)
+        response_log = AIResponseLog.objects.get()
+        self.assertEqual(response_log.status, AIResponseLog.Status.FAILED)
+        self.assertEqual(response_log.error_category, "request_lease_expired")
+        self.assertEqual(response_log.completed_at, provider.expired_at)
+        self.assertEqual(response_log.latency_ms, 180_000)
+        self.assertEqual(response_log.provider_response_id, "response-superseded-1")
+        self.assertEqual(response_log.request_id, "request-superseded-1")
+        self.assertEqual(response_log.input_tokens, 31)
+        self.assertEqual(response_log.output_tokens, 11)
+        self.assertEqual(response_log.total_tokens, 42)
 
     def test_old_conversation_cannot_be_read_after_new_customer_starts(self):
         old_id = self.create_session().data["id"]

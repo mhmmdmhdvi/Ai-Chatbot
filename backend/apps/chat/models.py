@@ -80,6 +80,7 @@ class Message(models.Model):
         ASSISTANT = "assistant", "دستیار"
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    client_request_id = models.UUIDField(blank=True, null=True, editable=False)
     conversation = models.ForeignKey(
         Conversation,
         on_delete=models.PROTECT,
@@ -96,6 +97,11 @@ class Message(models.Model):
         verbose_name_plural = "پیام‌ها"
         constraints = [
             models.CheckConstraint(condition=~Q(content=""), name="chat_message_content_not_empty"),
+            models.UniqueConstraint(
+                fields=("conversation", "client_request_id"),
+                condition=Q(client_request_id__isnull=False),
+                name="chat_conversation_request_unique",
+            ),
         ]
         indexes = [
             models.Index(fields=("conversation", "created_at"), name="chat_conversation_msg_idx"),
@@ -117,10 +123,10 @@ class AIResponseLog(models.Model):
         related_name="ai_response_logs",
         verbose_name="گفتگو",
     )
-    customer_message = models.OneToOneField(
+    customer_message = models.ForeignKey(
         Message,
         on_delete=models.PROTECT,
-        related_name="ai_request_log",
+        related_name="ai_request_logs",
         verbose_name="پیام مشتری",
     )
     assistant_message = models.OneToOneField(

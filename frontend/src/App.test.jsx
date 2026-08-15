@@ -190,11 +190,36 @@ describe("Persian kiosk application", () => {
     expect(messageScroller.className).toContain("min-h-0");
     expect(messageScroller.className).toContain("overflow-y-auto");
     expect(messageScroller.className).toContain("touch-pan-y");
+    expect(messageScroller.getAttribute("aria-live")).toBeNull();
+    const liveStatus = document.querySelector('[role="status"][aria-live="polite"].sr-only');
+    expect(liveStatus).not.toBeNull();
+    expect(liveStatus.getAttribute("aria-atomic")).toBe("true");
+    const chatStage = document.querySelector(".chat-stage");
+    const chatSurface = document.querySelector(".chat-surface");
+    const chatToolbar = document.querySelector(".chat-toolbar");
+    const composerDock = document.querySelector("footer.composer-dock");
+    expect(chatStage.className).toContain("min-h-0");
+    expect(chatStage.className).toContain("overflow-hidden");
+    expect(chatSurface.className).toContain("min-h-0");
+    expect(chatSurface.className).toContain("overflow-hidden");
+    expect(chatSurface.getAttribute("aria-busy")).toBe("false");
+    expect(chatSurface.children[0]).toBe(chatToolbar);
+    expect(chatSurface.children[1]).toBe(messageScroller);
+    expect(chatSurface.children[2]).toBe(composerDock);
+    expect(messageScroller.contains(composerDock)).toBe(false);
+    expect(composerDock.className).toContain("shrink-0");
+    expect(document.querySelector(".gradient-world").className).toContain("h-dvh");
+    expect(screen.getByRole("button", { name: "چت جدید" }).className).toContain("touch-button");
     const sessionRequest = fetchMock.mock.calls.find(
       ([url, options = {}]) => url === "/api/v1/sessions/" && options.method === "POST",
     );
     expect(JSON.parse(sessionRequest[1].body)).toEqual({});
     const composer = screen.getByLabelText("متن پیام");
+    expect(composer.getAttribute("enterkeyhint")).toBe("send");
+    expect(composer.className).toContain("chat-input");
+    const sendButton = screen.getByRole("button", { name: "ارسال پیام" });
+    expect(sendButton.className).toContain("h-14");
+    expect(sendButton.className).toContain("w-14");
     await user.type(composer, "قیمت مدل X200 چقدر است؟");
     await user.click(screen.getByRole("button", { name: "ارسال پیام" }));
 
@@ -203,13 +228,13 @@ describe("Persian kiosk application", () => {
     const customerMessageRow = message.closest("article");
     expect(customerMessageRow.getAttribute("dir")).toBe("ltr");
     expect(customerMessageRow.className).toContain("justify-end");
-    expect(customerMessageRow.querySelector("img.customer-avatar")).not.toBeNull();
+    expect(customerMessageRow.querySelector("img.customer-avatar.message-avatar")).not.toBeNull();
     expect(customerMessageRow.querySelector("img.assistant-avatar")).toBeNull();
     const assistantMessage = await screen.findByText("هنوز اطلاعات قیمت مدل X200 را در اختیار ندارم.");
     const assistantMessageRow = assistantMessage.closest("article");
     expect(assistantMessageRow.getAttribute("dir")).toBe("ltr");
     expect(assistantMessageRow.className).toContain("justify-start");
-    const assistantCharacter = assistantMessageRow.querySelector("img.assistant-avatar");
+    const assistantCharacter = assistantMessageRow.querySelector("img.assistant-avatar.message-avatar");
     expect(assistantCharacter).not.toBeNull();
     expect(assistantCharacter.getAttribute("src")).toContain("customer-guide-avatar");
     expect(assistantMessageRow.querySelector("img.customer-avatar")).toBeNull();
@@ -217,6 +242,11 @@ describe("Persian kiosk application", () => {
       ([url, options = {}]) => url.endsWith("/messages/") && options.method === "POST",
     );
     expect(streamRequest[1].headers.Accept).toBe("text/event-stream, application/json");
+    const streamBody = JSON.parse(streamRequest[1].body);
+    expect(streamBody.content).toBe("قیمت مدل X200 چقدر است؟");
+    expect(streamBody.client_request_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
 
     await user.click(screen.getByRole("button", { name: "چت جدید" }));
     const resetDialog = screen.getByRole("dialog", { name: "گفتگوی فعلی پایان یابد؟" });

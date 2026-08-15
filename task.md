@@ -1450,10 +1450,51 @@ Preferred production starting point for additional headroom:
 
 ---
 
+## Customer experience polish roadmap
+
+### Phase 1 — layout, typography, and touch foundation
+
+- [x] Stabilize the dynamic viewport and keep document-level scrolling disabled.
+- [x] Give the chat a dedicated toolbar so controls never overlap messages.
+- [x] Make avatar and bubble widths safe on narrow screens and compact-height kiosks.
+- [x] Increase touch-target comfort and add safe-area spacing around the composer.
+- [x] Improve Persian message sizing and line spacing without relying on a network font.
+- [x] Add a bounded auto-growing composer and composition-safe Enter handling.
+- [x] Stop streaming updates from stealing the scroll position when a customer reads an older message.
+- [ ] Receive visual approval on localhost at the target kiosk resolution.
+
+### Phase 2 — conversational feedback
+
+- [x] Add polished sending, thinking, streaming, completion, and offline feedback.
+- [x] Preserve failed questions and partial answers with explicit retry/edit controls.
+- [x] Reuse one request UUID so retries never duplicate the saved customer message, completed responses replay without another AI call, and every real provider attempt remains auditable.
+- [x] Add starter-question suggestions that disappear after the conversation begins.
+- [x] Pause the inactivity timeout while an AI response is actively streaming.
+- [ ] Receive visual approval for Phase 2 on localhost at the target kiosk resolution.
+
+### Phase 3 — kiosk navigation and session controls
+
+- [ ] Add a scroll-to-latest control and refine the new-chat and inactivity dialogs.
+- [ ] Add fullscreen entry/recovery and Windows on-screen-keyboard behavior.
+
+### Phase 4 — Persian technical presentation
+
+- [ ] Format mixed Persian/Latin product names, units, numbers, lists, and technical tables consistently.
+
+### Phase 5 — character state system
+
+- [ ] Create matching greeting, neutral, curious, thinking, happy, careful, and goodbye character renders.
+- [ ] Preload optimized transparent assets and map them to deterministic UI states.
+
+### Phase 6 — final quality pass
+
+- [ ] Verify touch, responsive layouts, accessibility, reduced motion, failure recovery, and production performance.
+
+---
+
 ## Next action
 
-1. Confirm the guarded legacy-source cleanup for Megatite T and SP without deleting historical records.
-2. Push and deploy the combined CT/LT/Pigment routing update.
-3. Upload, checksum, dry-run, import, and embed the three reviewed DOCX files; run their Persian acceptance suites and deactivate only the exact matching legacy sources.
-4. Import and test the still-pending reviewed general catalog, then continue the same human-reviewed DOCX workflow for the remaining product documents.
-5. Open the application on the touchscreen stand and verify touch comfort, Persian typing, scrolling, and the Windows on-screen keyboard.
+1. Review Phases 1 and 2 at `http://localhost:5173` on the development PC.
+2. Adjust any visual details found during the localhost review.
+3. Begin Phase 3 after the chat feedback and starter-question experience is approved.
+4. Keep exact legacy-source cleanup and production backup/retention work in the launch checklist.

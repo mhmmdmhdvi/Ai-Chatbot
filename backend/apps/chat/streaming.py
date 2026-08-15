@@ -46,12 +46,40 @@ def sse_event(event_name, payload):
     return f"event: {event_name}\ndata: {data}\n\n"
 
 
+def replay_conversation_response(*, customer_message, response_log):
+    """Replay a completed request without contacting the AI provider again."""
+    assistant_message = response_log.assistant_message
+    if assistant_message is None:
+        raise ValueError("A completed AI response log must have an assistant message.")
+
+    yield sse_event(
+        "customer",
+        {
+            "message": MessageSerializer(customer_message).data,
+            "ai_status": "completed",
+            "replayed": True,
+        },
+    )
+    yield sse_event(
+        "completed",
+        {
+            "customer_message": MessageSerializer(customer_message).data,
+            "assistant_message": MessageSerializer(assistant_message).data,
+            "ai_status": "completed",
+            "replayed": True,
+        },
+    )
+
+
 def fail_response_log(response_log, *, category, latency_ms, request_id=""):
-    AIResponseLog.objects.filter(pk=response_log.pk).update(
+    AIResponseLog.objects.filter(
+        pk=response_log.pk,
+        status=AIResponseLog.Status.PENDING,
+    ).update(
         status=AIResponseLog.Status.FAILED,
         error_category=category[:50],
         request_id=request_id[:100],
-        latency_ms=max(0, latency_ms),
+        latency_ms=min(max(0, latency_ms), 2_147_483_647),
         completed_at=timezone.now(),
     )
 
@@ -71,9 +99,23 @@ def stream_conversation_response(*, conversation, customer_message, response_log
 
     try:
         provider = get_ai_provider()
+        attempt_is_active = AIResponseLog.objects.filter(
+            pk=response_log.pk,
+            status=AIResponseLog.Status.PENDING,
+        ).update(provider=provider.name, model=provider.model)
+        if not attempt_is_active:
+            yield sse_event(
+                "error",
+                {
+                    "detail": "این تلاش منقضی شده و با تلاش جدیدی جایگزین شده است.",
+                    "retryable": True,
+                    "ai_status": "error",
+                    "code": "request_attempt_superseded",
+                },
+            )
+            return
         response_log.provider = provider.name
         response_log.model = provider.model
-        response_log.save(update_fields=("provider", "model"))
 
         knowledge_is_active = has_active_knowledge()
         retrieval_hits = retrieve_knowledge(
@@ -105,50 +147,95 @@ def stream_conversation_response(*, conversation, customer_message, response_log
 
             latency_ms = round((time.monotonic() - started_at) * 1000)
             completion = event.completion
+            attempt_is_active = True
             with transaction.atomic():
-                assistant_message = Message.objects.create(
-                    conversation=conversation,
-                    role=Message.Role.ASSISTANT,
-                    content=content,
+                locked_response_log = AIResponseLog.objects.select_for_update().get(
+                    pk=response_log.pk
                 )
-                MessageSource.objects.bulk_create(
-                    [
-                        MessageSource(
-                            message=assistant_message,
-                            chunk_id=hit.chunk_id,
-                            similarity=hit.similarity,
-                            rank=rank,
+                if locked_response_log.status != AIResponseLog.Status.PENDING:
+                    attempt_is_active = False
+                    if (
+                        locked_response_log.status == AIResponseLog.Status.FAILED
+                        and locked_response_log.error_category
+                        == "request_lease_expired"
+                    ):
+                        locked_response_log.model = completion.model or provider.model
+                        locked_response_log.provider_response_id = (
+                            completion.provider_response_id
                         )
-                        for rank, hit in enumerate(retrieval_hits, start=1)
-                    ]
-                )
-                response_log.assistant_message = assistant_message
-                response_log.status = AIResponseLog.Status.COMPLETED
-                response_log.model = completion.model or provider.model
-                response_log.provider_response_id = completion.provider_response_id
-                response_log.request_id = completion.request_id
-                response_log.input_tokens = completion.input_tokens
-                response_log.output_tokens = completion.output_tokens
-                response_log.total_tokens = completion.total_tokens
-                response_log.latency_ms = max(0, latency_ms)
-                response_log.completed_at = timezone.now()
-                response_log.error_category = ""
-                response_log.save(
-                    update_fields=(
-                        "assistant_message",
-                        "status",
-                        "model",
-                        "provider_response_id",
-                        "request_id",
-                        "input_tokens",
-                        "output_tokens",
-                        "total_tokens",
-                        "latency_ms",
-                        "completed_at",
-                        "error_category",
+                        locked_response_log.request_id = completion.request_id
+                        locked_response_log.input_tokens = completion.input_tokens
+                        locked_response_log.output_tokens = completion.output_tokens
+                        locked_response_log.total_tokens = completion.total_tokens
+                        locked_response_log.save(
+                            update_fields=(
+                                "model",
+                                "provider_response_id",
+                                "request_id",
+                                "input_tokens",
+                                "output_tokens",
+                                "total_tokens",
+                            )
+                        )
+                else:
+                    assistant_message = Message.objects.create(
+                        conversation=conversation,
+                        role=Message.Role.ASSISTANT,
+                        content=content,
                     )
+                    MessageSource.objects.bulk_create(
+                        [
+                            MessageSource(
+                                message=assistant_message,
+                                chunk_id=hit.chunk_id,
+                                similarity=hit.similarity,
+                                rank=rank,
+                            )
+                            for rank, hit in enumerate(retrieval_hits, start=1)
+                        ]
+                    )
+                    locked_response_log.assistant_message = assistant_message
+                    locked_response_log.status = AIResponseLog.Status.COMPLETED
+                    locked_response_log.model = completion.model or provider.model
+                    locked_response_log.provider_response_id = completion.provider_response_id
+                    locked_response_log.request_id = completion.request_id
+                    locked_response_log.input_tokens = completion.input_tokens
+                    locked_response_log.output_tokens = completion.output_tokens
+                    locked_response_log.total_tokens = completion.total_tokens
+                    locked_response_log.latency_ms = min(
+                        max(0, latency_ms),
+                        2_147_483_647,
+                    )
+                    locked_response_log.completed_at = timezone.now()
+                    locked_response_log.error_category = ""
+                    locked_response_log.save(
+                        update_fields=(
+                            "assistant_message",
+                            "status",
+                            "model",
+                            "provider_response_id",
+                            "request_id",
+                            "input_tokens",
+                            "output_tokens",
+                            "total_tokens",
+                            "latency_ms",
+                            "completed_at",
+                            "error_category",
+                        )
+                    )
+                    conversation.save(update_fields=("last_activity_at",))
+
+            if not attempt_is_active:
+                yield sse_event(
+                    "error",
+                    {
+                        "detail": "این تلاش منقضی شده و با تلاش جدیدی جایگزین شده است.",
+                        "retryable": True,
+                        "ai_status": "error",
+                        "code": "request_attempt_superseded",
+                    },
                 )
-                conversation.save(update_fields=("last_activity_at",))
+                return
 
             completed = True
             yield sse_event(

@@ -85,11 +85,11 @@ function parseBlocks(content) {
 
 export default function MessageContent({ content, formatted = false }) {
   if (!formatted) {
-    return <p className="mixed-content whitespace-pre-wrap break-words text-[15px] leading-7 sm:text-base" dir="auto">{content}</p>;
+    return <p className="mixed-content whitespace-pre-wrap break-words text-base leading-8 sm:text-[17px]" dir="auto">{content}</p>;
   }
 
   return (
-    <div className="assistant-message-content break-words text-right text-[15px] leading-7 sm:text-base" dir="rtl" lang="fa">
+    <div className="assistant-message-content break-words text-right text-base leading-8 sm:text-[17px]" dir="rtl" lang="fa">
       {parseBlocks(content).map((block, blockIndex) => {
         if (block.type === "heading") {
           return <p className="font-extrabold" key={`block-${blockIndex}`}><InlineContent>{block.content}</InlineContent></p>;
