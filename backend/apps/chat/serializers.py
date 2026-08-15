@@ -53,6 +53,14 @@ class CustomerSessionSerializer(serializers.Serializer):
         return attrs
 
 
+class CustomerDetailsSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100, trim_whitespace=True)
+    phone_number = serializers.CharField(max_length=30, trim_whitespace=True)
+
+    def validate_phone_number(self, value):
+        return normalize_iranian_phone(value)
+
+
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
         model = Message

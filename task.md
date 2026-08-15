@@ -1470,7 +1470,16 @@ Preferred production starting point for additional headroom:
 - [x] Reuse one request UUID so retries never duplicate the saved customer message, completed responses replay without another AI call, and every real provider attempt remains auditable.
 - [x] Add starter-question suggestions that disappear after the conversation begins.
 - [x] Pause the inactivity timeout while an AI response is actively streaming.
+- [x] Collect and validate the customer's name and Iranian mobile number after the first queued question, before any AI request is allowed.
+- [x] Preserve the queued starter or manual question while customer details are saved to the conversation and Django Admin.
 - [ ] Receive visual approval for Phase 2 on localhost at the target kiosk resolution.
+
+### API usage and cost visibility
+
+- [x] Record input, cached-input, output, and total tokens for each completed provider attempt.
+- [x] Add a filtered usage summary and per-request estimated USD cost to Django Admin.
+- [ ] Configure the current model's input, cached-input, and output rates in production `.env` before relying on cost estimates.
+- [ ] Reconcile estimated application cost with OpenAI's authoritative Costs/Usage dashboard during launch checks.
 
 ### Phase 3 — kiosk navigation and session controls
 

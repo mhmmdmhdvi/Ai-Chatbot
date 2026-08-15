@@ -6,6 +6,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const apiMocks = vi.hoisted(() => ({
+  saveCustomer: vi.fn(),
   sendMessageStream: vi.fn(),
   startSession: vi.fn(),
 }));
@@ -23,6 +24,7 @@ vi.mock("../../services/api", () => {
   return {
     ApiError,
     api: {
+      saveCustomer: apiMocks.saveCustomer,
       sendMessageStream: apiMocks.sendMessageStream,
       startSession: apiMocks.startSession,
     },
@@ -50,12 +52,13 @@ import { ApiError } from "../../services/api";
 const baseConversation = {
   id: "30d117a4-924c-4490-a202-5def926ad914",
   started_at: "2026-08-11T12:00:00Z",
+  customer: { id: "customer-existing", name: "محمد", phone_number: "+989121234567" },
   messages: [],
 };
 
 
-function ChatHarness({ online = true }) {
-  const [conversation, setConversation] = useState(baseConversation);
+function ChatHarness({ online = true, initialConversation = baseConversation }) {
+  const [conversation, setConversation] = useState(initialConversation);
 
   return (
     <ChatPanel
@@ -166,6 +169,76 @@ describe("ChatPanel layout helpers", () => {
 
 
 describe("ChatPanel turn experience", () => {
+  it("collects customer details before sending a suggested first question", async () => {
+    const guestConversation = { ...baseConversation, customer: null };
+    const savedConversation = {
+      ...guestConversation,
+      customer: { id: "saved-customer", name: "سارا", phone_number: "+989121234567" },
+    };
+    apiMocks.saveCustomer.mockResolvedValue(savedConversation);
+    apiMocks.sendMessageStream.mockResolvedValue({
+      customer_message: {
+        id: "customer-question",
+        role: "customer",
+        content: STARTER_QUESTIONS[0],
+      },
+      assistant_message: {
+        id: "assistant-answer",
+        role: "assistant",
+        content: "برای انتخاب دقیق، نوع نما را بفرمایید.",
+      },
+    });
+    const user = userEvent.setup();
+    render(<ChatHarness initialConversation={guestConversation} />);
+
+    await user.click(screen.getByRole("button", { name: STARTER_QUESTIONS[0] }));
+
+    expect(screen.getByRole("dialog", { name: "آشنایی کوتاه" })).toBeTruthy();
+    expect(screen.getByText("برای بهبود کیفیت پاسخ لطفا نام و شماره خود را وارد کنید")).toBeTruthy();
+    expect(apiMocks.sendMessageStream).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("نام"), "سارا");
+    await user.type(screen.getByLabelText("شماره موبایل"), "۰۹۱۲۱۲۳۴۵۶۷");
+    await user.click(screen.getByRole("button", { name: "ذخیره و دریافت پاسخ" }));
+
+    await waitFor(() => expect(apiMocks.saveCustomer).toHaveBeenCalledWith(
+      guestConversation.id,
+      { name: "سارا", phone_number: "۰۹۱۲۱۲۳۴۵۶۷" },
+    ));
+    await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1));
+    expect(apiMocks.sendMessageStream.mock.calls[0][1].content).toBe(STARTER_QUESTIONS[0]);
+  });
+
+  it("queues a manually typed first question until customer details are saved", async () => {
+    const guestConversation = { ...baseConversation, customer: null };
+    const savedConversation = {
+      ...guestConversation,
+      customer: { id: "saved-customer", name: "علی", phone_number: "+989351234567" },
+    };
+    apiMocks.saveCustomer.mockResolvedValue(savedConversation);
+    apiMocks.sendMessageStream.mockResolvedValue({
+      customer_message: { id: "manual-customer", role: "customer", content: "مگاتایت C چیست؟" },
+      assistant_message: { id: "manual-assistant", role: "assistant", content: "مگاتایت C یک چسب اپوکسی است." },
+    });
+    const user = userEvent.setup();
+    render(<ChatHarness initialConversation={guestConversation} />);
+
+    await user.type(screen.getByLabelText("متن پیام"), "مگاتایت C چیست؟");
+    await user.click(screen.getByRole("button", { name: "ارسال پیام" }));
+
+    expect(screen.getByRole("dialog", { name: "آشنایی کوتاه" })).toBeTruthy();
+    expect(screen.getByLabelText("متن پیام").value).toBe("مگاتایت C چیست؟");
+    expect(apiMocks.sendMessageStream).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText("نام"), "علی");
+    await user.type(screen.getByLabelText("شماره موبایل"), "09351234567");
+    await user.click(screen.getByRole("button", { name: "ذخیره و دریافت پاسخ" }));
+
+    await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1));
+    expect(apiMocks.sendMessageStream.mock.calls[0][1].content).toBe("مگاتایت C چیست؟");
+    expect(screen.queryByRole("dialog", { name: "آشنایی کوتاه" })).toBeNull();
+  });
+
   it("offers starter questions once and blocks a duplicate send while thinking", async () => {
     apiMocks.sendMessageStream.mockImplementation(async (_conversationId, _payload, handlers) => {
       handlers.onCustomer({

@@ -1,6 +1,8 @@
 from django.contrib import admin
+from django.db.models import Count, Q, Sum
 
 from .models import AIResponseLog, Conversation, Customer, Message
+from .usage import openai_cost_rates_configured
 
 
 class ReadOnlyAdminMixin:
@@ -46,7 +48,10 @@ class AIResponseLogInline(admin.TabularInline):
         "provider",
         "model",
         "input_tokens",
+        "cached_input_tokens",
         "output_tokens",
+        "total_tokens",
+        "estimated_cost_usd",
         "latency_ms",
         "error_category",
         "created_at",
@@ -79,6 +84,7 @@ class MessageAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
 
 @admin.register(AIResponseLog)
 class AIResponseLogAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
+    change_list_template = "admin/chat/airesponselog/change_list.html"
     list_display = (
         "id",
         "conversation",
@@ -86,7 +92,10 @@ class AIResponseLogAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
         "provider",
         "model",
         "input_tokens",
+        "cached_input_tokens",
         "output_tokens",
+        "total_tokens",
+        "estimated_cost_usd",
         "latency_ms",
         "created_at",
     )
@@ -99,3 +108,28 @@ class AIResponseLogAdmin(ReadOnlyAdminMixin, admin.ModelAdmin):
     )
     list_select_related = ("conversation", "conversation__customer")
     ordering = ("-created_at",)
+
+    def changelist_view(self, request, extra_context=None):
+        response = super().changelist_view(request, extra_context=extra_context)
+        if not hasattr(response, "context_data"):
+            return response
+
+        changelist = response.context_data.get("cl")
+        if changelist is None:
+            return response
+        totals = changelist.queryset.aggregate(
+            request_count=Count("id"),
+            completed_count=Count("id", filter=Q(status=AIResponseLog.Status.COMPLETED)),
+            failed_count=Count("id", filter=Q(status=AIResponseLog.Status.FAILED)),
+            input_tokens=Sum("input_tokens"),
+            cached_input_tokens=Sum("cached_input_tokens"),
+            output_tokens=Sum("output_tokens"),
+            total_tokens=Sum("total_tokens"),
+            estimated_cost_usd=Sum("estimated_cost_usd"),
+        )
+        for key, value in totals.items():
+            if value is None:
+                totals[key] = 0
+        response.context_data["usage_totals"] = totals
+        response.context_data["cost_rates_configured"] = openai_cost_rates_configured()
+        return response

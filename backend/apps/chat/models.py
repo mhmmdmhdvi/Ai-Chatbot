@@ -149,8 +149,15 @@ class AIResponseLog(models.Model):
     provider_response_id = models.CharField("شناسه پاسخ ارائه‌دهنده", max_length=100, blank=True)
     request_id = models.CharField("شناسه درخواست", max_length=100, blank=True)
     input_tokens = models.PositiveIntegerField("توکن ورودی", default=0)
+    cached_input_tokens = models.PositiveIntegerField("توکن ورودی کش‌شده", default=0)
     output_tokens = models.PositiveIntegerField("توکن خروجی", default=0)
     total_tokens = models.PositiveIntegerField("مجموع توکن", default=0)
+    estimated_cost_usd = models.DecimalField(
+        "هزینه تخمینی (دلار)",
+        max_digits=14,
+        decimal_places=6,
+        default=0,
+    )
     latency_ms = models.PositiveIntegerField("زمان پاسخ (میلی‌ثانیه)", default=0)
     error_category = models.CharField("نوع خطا", max_length=50, blank=True)
     created_at = models.DateTimeField("زمان ایجاد", auto_now_add=True, db_index=True)

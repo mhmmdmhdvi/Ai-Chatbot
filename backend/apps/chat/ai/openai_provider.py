@@ -59,6 +59,7 @@ class OpenAIProvider(AIProvider):
                 if event.type == "response.completed":
                     response = event.response
                     usage = getattr(response, "usage", None)
+                    input_details = getattr(usage, "input_tokens_details", None)
                     yield AIStreamEvent(
                         type="completed",
                         completion=AICompletion(
@@ -68,6 +69,9 @@ class OpenAIProvider(AIProvider):
                             ),
                             model=getattr(response, "model", "") or self.model,
                             input_tokens=getattr(usage, "input_tokens", 0) or 0,
+                            cached_input_tokens=(
+                                getattr(input_details, "cached_tokens", 0) or 0
+                            ),
                             output_tokens=getattr(usage, "output_tokens", 0) or 0,
                             total_tokens=getattr(usage, "total_tokens", 0) or 0,
                         ),

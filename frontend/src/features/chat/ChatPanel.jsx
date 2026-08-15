@@ -337,7 +337,14 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   const [starting, setStarting] = useState(false);
   const [intakeError, setIntakeError] = useState("");
   const [activeTurn, setActiveTurn] = useState(null);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [contactError, setContactError] = useState("");
+  const [contactSaving, setContactSaving] = useState(false);
+  const [pendingQuestion, setPendingQuestion] = useState(null);
   const inputRef = useRef(null);
+  const contactNameRef = useRef(null);
   const scrollRef = useRef(null);
   const shouldFollowScrollRef = useRef(true);
   const previousConversationIdRef = useRef(conversation?.id || null);
@@ -368,6 +375,12 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     setActiveTurn(null);
     setIntakeError("");
     setStarting(false);
+    setContactOpen(false);
+    setContactName("");
+    setContactPhone("");
+    setContactError("");
+    setContactSaving(false);
+    setPendingQuestion(null);
   }, []);
 
   useEffect(() => {
@@ -396,7 +409,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   }, [conversation?.id, onReset, resetLocalFlow]);
 
   const { warningOpen, secondsLeft, stayActive } = useIdleTimeout({
-    enabled: Boolean(conversation) && !activeNetworkTurn,
+    enabled: Boolean(conversation) && !activeNetworkTurn && !contactOpen,
     idleMs: IDLE_INACTIVITY_MS,
     warningMs: IDLE_WARNING_MS,
     onTimeout: handleIdleTimeout,
@@ -498,10 +511,11 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     }
   };
 
-  const runTurn = async ({ question, requestId, customerMessage = null }) => {
-    if (!question.trim() || turnInFlightRef.current || !conversation || !online) return;
+  const runTurn = async ({ question, requestId, customerMessage = null, conversationSnapshot = conversation }) => {
+    if (!question.trim() || turnInFlightRef.current || !conversationSnapshot || !online) return;
 
     const trimmedQuestion = question.trim();
+    const turnConversation = conversationSnapshot;
     let savedCustomerMessage = customerMessage;
     let partialAnswer = "";
     const controller = new AbortController();
@@ -521,7 +535,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
 
     try {
       const result = await api.sendMessageStream(
-        conversation.id,
+        turnConversation.id,
         { content: trimmedQuestion, clientRequestId: requestId },
         {
           onCustomer: ({ message }) => {
@@ -545,9 +559,9 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
       );
       const finalCustomerMessage = savedCustomerMessage || result.customer_message;
       onConversationChange({
-        ...conversation,
+        ...turnConversation,
         messages: mergeMessagesById(
-          conversation.messages || [],
+          turnConversation.messages || [],
           finalCustomerMessage,
           result.assistant_message,
         ),
@@ -566,8 +580,8 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
       }
       if (savedCustomerMessage) {
         onConversationChange({
-          ...conversation,
-          messages: mergeMessagesById(conversation.messages || [], savedCustomerMessage),
+          ...turnConversation,
+          messages: mergeMessagesById(turnConversation.messages || [], savedCustomerMessage),
         });
       }
       setActiveTurn((current) => current?.requestId === requestId ? {
@@ -586,10 +600,66 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     }
   };
 
+  const requestQuestion = (question) => {
+    const trimmedQuestion = question.trim();
+    if (!trimmedQuestion || activeNetworkTurn || !conversation || !online) return;
+    if (!conversation.customer) {
+      setPendingQuestion({ question: trimmedQuestion, requestId: createClientRequestId() });
+      setContactError("");
+      setContactOpen(true);
+      return;
+    }
+    runTurn({ question: trimmedQuestion, requestId: createClientRequestId() });
+  };
+
+  const closeContactDialog = useCallback(() => {
+    if (contactSaving) return;
+    setContactOpen(false);
+    setContactError("");
+    setPendingQuestion(null);
+    window.requestAnimationFrame(() => inputRef.current?.focus());
+  }, [contactSaving]);
+
+  const saveCustomerAndSend = async () => {
+    if (contactSaving || !pendingQuestion || !conversation) return;
+    if (!contactName.trim() || !contactPhone.trim()) {
+      setContactError("لطفاً نام و شماره موبایل را کامل وارد کنید.");
+      return;
+    }
+
+    setContactError("");
+    setContactSaving(true);
+    try {
+      const updatedConversation = await api.saveCustomer(conversation.id, {
+        name: contactName.trim(),
+        phone_number: contactPhone.trim(),
+      });
+      const queuedQuestion = pendingQuestion;
+      onConversationChange(updatedConversation);
+      setContactOpen(false);
+      setContactName("");
+      setContactPhone("");
+      setPendingQuestion(null);
+      await runTurn({
+        question: queuedQuestion.question,
+        requestId: queuedQuestion.requestId,
+        conversationSnapshot: updatedConversation,
+      });
+    } catch (requestError) {
+      if (requestError instanceof ApiError && [401, 403].includes(requestError.status)) {
+        onSessionExpired();
+        return;
+      }
+      setContactError(requestError.message || "ثبت اطلاعات انجام نشد. لطفاً دوباره تلاش کنید.");
+    } finally {
+      setContactSaving(false);
+    }
+  };
+
   const submitMessage = (event) => {
     event.preventDefault();
     if (!content.trim() || activeNetworkTurn || !conversation) return;
-    runTurn({ question: content, requestId: createClientRequestId() });
+    requestQuestion(content);
   };
 
   const retryTurn = () => {
@@ -610,7 +680,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
 
   const selectStarterQuestion = (question) => {
     if (activeNetworkTurn || !online) return;
-    runTurn({ question, requestId: createClientRequestId() });
+    requestQuestion(question);
   };
 
   const handleTextareaKeyDown = (event) => {
@@ -723,6 +793,55 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
           </div>
         </main>
       )}
+
+      <Dialog
+        busy={contactSaving}
+        cancelLabel="فعلاً نه"
+        confirmLabel="ذخیره و دریافت پاسخ"
+        description="برای بهبود کیفیت پاسخ لطفا نام و شماره خود را وارد کنید"
+        initialFocusRef={contactNameRef}
+        onCancel={closeContactDialog}
+        onConfirm={saveCustomerAndSend}
+        open={contactOpen}
+        title="آشنایی کوتاه"
+        tone="primary"
+      >
+        <div className="space-y-4" dir="rtl">
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-700">نام</span>
+            <input
+              aria-label="نام"
+              autoComplete="name"
+              className="min-h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-cyan-500 focus:bg-white focus:ring-4 focus:ring-cyan-100"
+              maxLength={100}
+              onChange={(event) => setContactName(event.target.value)}
+              onKeyDown={(event) => event.key === "Enter" && saveCustomerAndSend()}
+              ref={contactNameRef}
+              value={contactName}
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-sm font-bold text-slate-700">شماره موبایل</span>
+            <input
+              aria-label="شماره موبایل"
+              autoComplete="tel"
+              className="min-h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-left text-base text-slate-900 outline-none transition focus:border-cyan-500 focus:bg-white focus:ring-4 focus:ring-cyan-100"
+              dir="ltr"
+              inputMode="tel"
+              maxLength={30}
+              onChange={(event) => setContactPhone(event.target.value)}
+              onKeyDown={(event) => event.key === "Enter" && saveCustomerAndSend()}
+              placeholder="۰۹۱۲۱۲۳۴۵۶۷"
+              value={contactPhone}
+            />
+          </label>
+          {contactError && (
+            <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-700" role="alert">
+              {contactError}
+            </p>
+          )}
+        </div>
+      </Dialog>
 
       <Dialog
         cancelLabel="شروع چت جدید"

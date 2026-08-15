@@ -201,6 +201,10 @@ export const api = {
   me: (signal) => request("/api/v1/auth/me/", { signal }),
   currentSession: (signal) => request("/api/v1/sessions/current/", { signal }),
   startSession: (customer) => request("/api/v1/sessions/", { method: "POST", body: customer }),
+  saveCustomer: (conversationId, customer) => request(
+    `/api/v1/conversations/${conversationId}/customer/`,
+    { method: "PATCH", body: customer },
+  ),
   sendMessageStream,
   closeConversation: (conversationId) =>
     request(`/api/v1/conversations/${conversationId}/close/`, { method: "POST" }),

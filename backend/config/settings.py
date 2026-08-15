@@ -1,5 +1,6 @@
 import os
 from datetime import timedelta
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
@@ -46,6 +47,17 @@ def env_float(name, default, *, minimum=0.0, maximum=None):
         if maximum is not None:
             range_description = f"between {minimum} and {maximum}"
         raise ImproperlyConfigured(f"{name} must be {range_description}.")
+    return value
+
+
+def env_decimal(name, default="0", *, minimum=Decimal("0")):
+    raw_value = os.getenv(name, default)
+    try:
+        value = Decimal(raw_value)
+    except InvalidOperation as exc:
+        raise ImproperlyConfigured(f"{name} must be a decimal number.") from exc
+    if not value.is_finite() or value < minimum:
+        raise ImproperlyConfigured(f"{name} must be at least {minimum}.")
     return value
 
 
@@ -185,6 +197,15 @@ AI_RESPONSE_PENDING_LEASE_SECONDS = env_int(
     maximum=3600,
 )
 OPENAI_MAX_OUTPUT_TOKENS = env_int("OPENAI_MAX_OUTPUT_TOKENS", 800, minimum=100, maximum=4000)
+OPENAI_INPUT_PRICE_PER_MILLION_USD = env_decimal(
+    "OPENAI_INPUT_PRICE_PER_MILLION_USD"
+)
+OPENAI_CACHED_INPUT_PRICE_PER_MILLION_USD = env_decimal(
+    "OPENAI_CACHED_INPUT_PRICE_PER_MILLION_USD"
+)
+OPENAI_OUTPUT_PRICE_PER_MILLION_USD = env_decimal(
+    "OPENAI_OUTPUT_PRICE_PER_MILLION_USD"
+)
 OPENAI_DOCUMENT_EXTRACTION_MODEL = os.getenv(
     "OPENAI_DOCUMENT_EXTRACTION_MODEL",
     OPENAI_MODEL,

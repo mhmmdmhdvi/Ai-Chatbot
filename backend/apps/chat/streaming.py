@@ -17,6 +17,7 @@ from apps.knowledge.retrieval import (
 from .ai import AIProviderError, build_conversation_context, get_ai_provider
 from .models import AIResponseLog, Message
 from .serializers import MessageSerializer
+from .usage import estimate_completion_cost_usd
 
 
 logger = logging.getLogger(__name__)
@@ -147,6 +148,11 @@ def stream_conversation_response(*, conversation, customer_message, response_log
 
             latency_ms = round((time.monotonic() - started_at) * 1000)
             completion = event.completion
+            estimated_cost_usd = estimate_completion_cost_usd(
+                input_tokens=completion.input_tokens,
+                cached_input_tokens=completion.cached_input_tokens,
+                output_tokens=completion.output_tokens,
+            )
             attempt_is_active = True
             with transaction.atomic():
                 locked_response_log = AIResponseLog.objects.select_for_update().get(
@@ -165,16 +171,20 @@ def stream_conversation_response(*, conversation, customer_message, response_log
                         )
                         locked_response_log.request_id = completion.request_id
                         locked_response_log.input_tokens = completion.input_tokens
+                        locked_response_log.cached_input_tokens = completion.cached_input_tokens
                         locked_response_log.output_tokens = completion.output_tokens
                         locked_response_log.total_tokens = completion.total_tokens
+                        locked_response_log.estimated_cost_usd = estimated_cost_usd
                         locked_response_log.save(
                             update_fields=(
                                 "model",
                                 "provider_response_id",
                                 "request_id",
                                 "input_tokens",
+                                "cached_input_tokens",
                                 "output_tokens",
                                 "total_tokens",
+                                "estimated_cost_usd",
                             )
                         )
                 else:
@@ -200,8 +210,10 @@ def stream_conversation_response(*, conversation, customer_message, response_log
                     locked_response_log.provider_response_id = completion.provider_response_id
                     locked_response_log.request_id = completion.request_id
                     locked_response_log.input_tokens = completion.input_tokens
+                    locked_response_log.cached_input_tokens = completion.cached_input_tokens
                     locked_response_log.output_tokens = completion.output_tokens
                     locked_response_log.total_tokens = completion.total_tokens
+                    locked_response_log.estimated_cost_usd = estimated_cost_usd
                     locked_response_log.latency_ms = min(
                         max(0, latency_ms),
                         2_147_483_647,
@@ -216,8 +228,10 @@ def stream_conversation_response(*, conversation, customer_message, response_log
                             "provider_response_id",
                             "request_id",
                             "input_tokens",
+                            "cached_input_tokens",
                             "output_tokens",
                             "total_tokens",
+                            "estimated_cost_usd",
                             "latency_ms",
                             "completed_at",
                             "error_category",

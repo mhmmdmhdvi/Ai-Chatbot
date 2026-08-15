@@ -1,0 +1,27 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block content %}
+  <div class="module" style="margin-bottom: 20px; padding: 16px;">
+    <h2 style="margin: 0 0 14px;">مصرف API در نتایج فعلی</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
+      <div><strong>درخواست‌ها</strong><br>{{ usage_totals.request_count }}</div>
+      <div><strong>موفق / ناموفق</strong><br>{{ usage_totals.completed_count }} / {{ usage_totals.failed_count }}</div>
+      <div><strong>توکن ورودی</strong><br>{{ usage_totals.input_tokens }}</div>
+      <div><strong>ورودی کش‌شده</strong><br>{{ usage_totals.cached_input_tokens }}</div>
+      <div><strong>توکن خروجی</strong><br>{{ usage_totals.output_tokens }}</div>
+      <div><strong>مجموع توکن</strong><br>{{ usage_totals.total_tokens }}</div>
+      <div><strong>هزینه تخمینی</strong><br>${{ usage_totals.estimated_cost_usd|floatformat:6 }}</div>
+    </div>
+    {% if not cost_rates_configured %}
+      <p class="help" style="margin: 14px 0 0; color: #ba2121;">
+        نرخ‌های مدل تنظیم نشده‌اند؛ شمارش توکن دقیق است، اما هزینه تخمینی تا زمان تنظیم نرخ‌ها صفر نمایش داده می‌شود.
+      </p>
+    {% else %}
+      <p class="help" style="margin: 14px 0 0;">
+        هزینه بر اساس نرخ‌های تنظیم‌شده برای مدل تخمین زده می‌شود؛ صورتحساب OpenAI مرجع نهایی است.
+      </p>
+    {% endif %}
+  </div>
+  {{ block.super }}
+{% endblock %}

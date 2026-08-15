@@ -136,7 +136,7 @@ describe("Persian kiosk application", () => {
     expect(screen.queryByLabelText("صفحه گفتگو")).toBeNull();
   });
 
-  it("starts an anonymous chat, stores a message, and clears the screen for the next customer", async () => {
+  it("collects customer details after the first question, stores the chat, and clears it for the next customer", async () => {
     const conversation = {
       id: "30d117a4-924c-4490-a202-5def926ad914",
       customer: null,
@@ -149,6 +149,12 @@ describe("Persian kiosk application", () => {
       if (url === "/api/v1/auth/me/") return jsonResponse(kioskUser);
       if (url === "/api/v1/sessions/current/") return emptyResponse();
       if (url === "/api/v1/sessions/" && options.method === "POST") return jsonResponse(conversation, 201);
+      if (url.endsWith("/customer/") && options.method === "PATCH") {
+        return jsonResponse({
+          ...conversation,
+          customer: { id: "customer-1", name: "محمد", phone_number: "+989121234567" },
+        });
+      }
       if (url.endsWith("/messages/") && options.method === "POST") {
         const customerMessage = {
           id: "1f57ceac-38c8-41ee-a96e-a833988efdd8",
@@ -224,6 +230,12 @@ describe("Persian kiosk application", () => {
     await user.type(composer, "قیمت مدل X200 چقدر است؟");
     await user.click(screen.getByRole("button", { name: "ارسال پیام" }));
 
+    expect(await screen.findByText("برای بهبود کیفیت پاسخ لطفا نام و شماره خود را وارد کنید")).toBeTruthy();
+    expect(fetchMock.mock.calls.some(([url]) => url.endsWith("/messages/"))).toBe(false);
+    await user.type(screen.getByLabelText("نام"), "محمد");
+    await user.type(screen.getByLabelText("شماره موبایل"), "۰۹۱۲۱۲۳۴۵۶۷");
+    await user.click(screen.getByRole("button", { name: "ذخیره و دریافت پاسخ" }));
+
     const message = await screen.findByText("قیمت مدل X200 چقدر است؟");
     expect(message.getAttribute("dir")).toBe("auto");
     const customerMessageRow = message.closest("article");
@@ -249,6 +261,13 @@ describe("Persian kiosk application", () => {
     expect(streamBody.client_request_id).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     );
+    const customerRequest = fetchMock.mock.calls.find(
+      ([url, options = {}]) => url.endsWith("/customer/") && options.method === "PATCH",
+    );
+    expect(JSON.parse(customerRequest[1].body)).toEqual({
+      name: "محمد",
+      phone_number: "۰۹۱۲۱۲۳۴۵۶۷",
+    });
 
     await user.click(screen.getByRole("button", { name: "چت جدید" }));
     const resetDialog = screen.getByRole("dialog", { name: "گفتگوی فعلی پایان یابد؟" });

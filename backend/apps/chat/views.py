@@ -13,10 +13,16 @@ from .models import AIResponseLog, Message
 from .serializers import (
     ConversationSerializer,
     CreateMessageSerializer,
+    CustomerDetailsSerializer,
     CustomerSessionSerializer,
     MessageSerializer,
 )
-from .services import clear_active_conversation, get_active_conversation, start_customer_session
+from .services import (
+    attach_customer_to_conversation,
+    clear_active_conversation,
+    get_active_conversation,
+    start_customer_session,
+)
 from .streaming import replay_conversation_response, stream_conversation_response
 
 
@@ -38,6 +44,36 @@ class CurrentCustomerSessionView(APIView):
         conversation = get_active_conversation(request)
         if conversation is None:
             return Response(status=status.HTTP_204_NO_CONTENT)
+        return Response(ConversationSerializer(conversation).data)
+
+
+class ConversationCustomerView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, conversation_id):
+        conversation = get_active_conversation(request, conversation_id)
+        if conversation is None:
+            raise Http404
+
+        serializer = CustomerDetailsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            conversation = attach_customer_to_conversation(
+                conversation=conversation,
+                **serializer.validated_data,
+            )
+        except ValueError as exc:
+            if str(exc) != "conversation_customer_conflict":
+                raise
+            return Response(
+                {
+                    "detail": "اطلاعات مشتری این گفتگو قبلاً ثبت شده است. برای مشتری دیگر، چت جدیدی شروع کنید.",
+                    "code": "conversation_customer_conflict",
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        conversation = get_active_conversation(request, conversation.id)
         return Response(ConversationSerializer(conversation).data)
 
 
@@ -95,6 +131,15 @@ class ConversationMessagesView(APIView):
 
     def post(self, request, conversation_id):
         conversation = self._conversation(request, conversation_id)
+        if conversation.customer_id is None:
+            return Response(
+                {
+                    "detail": "برای دریافت پاسخ، لطفاً ابتدا نام و شماره خود را وارد کنید.",
+                    "code": "customer_details_required",
+                    "retryable": False,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
         serializer = CreateMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         content = serializer.validated_data["content"]

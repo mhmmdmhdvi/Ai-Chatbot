@@ -50,6 +50,7 @@ class SuccessfulAIProvider:
                 request_id="request-test-1",
                 model=self.model,
                 input_tokens=20,
+                cached_input_tokens=5,
                 output_tokens=10,
                 total_tokens=30,
             ),
@@ -233,6 +234,57 @@ class ChatApiTests(TestCase):
         self.assertEqual(Customer.objects.count(), 0)
         self.assertIsNone(Conversation.objects.get(id=response.data["id"]).customer)
 
+    def test_first_message_is_blocked_until_customer_details_are_saved(self):
+        conversation_id = self.create_session(name="", phone_number="").data["id"]
+
+        response = self.client.post(
+            reverse("chat:conversation-messages", args=(conversation_id,)),
+            {"content": "مگاتایت S چه کاربردی دارد؟"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data["code"], "customer_details_required")
+        self.assertEqual(Message.objects.count(), 0)
+        self.assertEqual(AIResponseLog.objects.count(), 0)
+
+    def test_customer_details_are_attached_with_normalized_persian_phone(self):
+        conversation_id = self.create_session(name="", phone_number="").data["id"]
+
+        response = self.client.patch(
+            reverse("chat:conversation-customer", args=(conversation_id,)),
+            {"name": "محمد رضایی", "phone_number": "۰۹۱۲۱۲۳۴۵۶۷"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["customer"]["name"], "محمد رضایی")
+        self.assertEqual(response.data["customer"]["phone_number"], "+989121234567")
+        conversation = Conversation.objects.get(pk=conversation_id)
+        self.assertEqual(conversation.customer.phone_number, "+989121234567")
+
+    def test_customer_details_reuse_phone_but_cannot_replace_conversation_customer(self):
+        Customer.objects.create(name="نام قبلی", phone_number="+989121234567")
+        conversation_id = self.create_session(name="", phone_number="").data["id"]
+        url = reverse("chat:conversation-customer", args=(conversation_id,))
+
+        first = self.client.patch(
+            url,
+            {"name": "نام جدید", "phone_number": "09121234567"},
+            format="json",
+        )
+        conflict = self.client.patch(
+            url,
+            {"name": "مشتری دیگر", "phone_number": "09351234567"},
+            format="json",
+        )
+
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(Customer.objects.count(), 1)
+        self.assertEqual(Customer.objects.get().name, "نام جدید")
+        self.assertEqual(conflict.status_code, 409)
+        self.assertEqual(conflict.data["code"], "conversation_customer_conflict")
+
     def test_partial_customer_details_are_rejected(self):
         response = self.client.post(
             reverse("chat:session-create"),
@@ -331,6 +383,7 @@ class ChatApiTests(TestCase):
         self.assertEqual(response_log.status, AIResponseLog.Status.COMPLETED)
         self.assertEqual(response_log.assistant_message, assistant_messages.get())
         self.assertEqual(response_log.input_tokens, 20)
+        self.assertEqual(response_log.cached_input_tokens, 5)
         self.assertEqual(response_log.output_tokens, 10)
         self.assertEqual(response_log.total_tokens, 30)
         self.assertEqual(response_log.provider_response_id, "response-test-1")
