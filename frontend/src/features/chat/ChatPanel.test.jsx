@@ -169,7 +169,7 @@ describe("ChatPanel layout helpers", () => {
 
 
 describe("ChatPanel turn experience", () => {
-  it("collects customer details before sending a suggested first question", async () => {
+  it("generates a suggested first answer behind the required contact dialog", async () => {
     const guestConversation = { ...baseConversation, customer: null };
     const savedConversation = {
       ...guestConversation,
@@ -193,23 +193,32 @@ describe("ChatPanel turn experience", () => {
 
     await user.click(screen.getByRole("button", { name: STARTER_QUESTIONS[0] }));
 
-    expect(screen.getByRole("dialog", { name: "آشنایی کوتاه" })).toBeTruthy();
-    expect(screen.getByText("برای بهبود کیفیت پاسخ لطفا نام و شماره خود را وارد کنید")).toBeTruthy();
-    expect(apiMocks.sendMessageStream).not.toHaveBeenCalled();
+    const contactDialog = screen.getByRole("dialog", {
+      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+    });
+    expect(contactDialog).toBeTruthy();
+    expect(contactDialog.parentElement.className).toContain("backdrop-blur-md");
+    expect(screen.queryByRole("button", { name: "بستن" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "فعلاً نه" })).toBeNull();
+    await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1));
+    expect(apiMocks.saveCustomer).not.toHaveBeenCalled();
 
     await user.type(screen.getByLabelText("نام"), "سارا");
     await user.type(screen.getByLabelText("شماره موبایل"), "۰۹۱۲۱۲۳۴۵۶۷");
-    await user.click(screen.getByRole("button", { name: "ذخیره و دریافت پاسخ" }));
+    await user.click(screen.getByRole("button", { name: "ثبت و مشاهده پاسخ" }));
 
     await waitFor(() => expect(apiMocks.saveCustomer).toHaveBeenCalledWith(
       guestConversation.id,
       { name: "سارا", phone_number: "۰۹۱۲۱۲۳۴۵۶۷" },
     ));
-    await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1));
+    expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1);
     expect(apiMocks.sendMessageStream.mock.calls[0][1].content).toBe(STARTER_QUESTIONS[0]);
+    expect(screen.queryByRole("dialog", {
+      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+    })).toBeNull();
   });
 
-  it("queues a manually typed first question until customer details are saved", async () => {
+  it("generates a manually typed first answer while the contact dialog is open", async () => {
     const guestConversation = { ...baseConversation, customer: null };
     const savedConversation = {
       ...guestConversation,
@@ -226,17 +235,21 @@ describe("ChatPanel turn experience", () => {
     await user.type(screen.getByLabelText("متن پیام"), "مگاتایت C چیست؟");
     await user.click(screen.getByRole("button", { name: "ارسال پیام" }));
 
-    expect(screen.getByRole("dialog", { name: "آشنایی کوتاه" })).toBeTruthy();
-    expect(screen.getByLabelText("متن پیام").value).toBe("مگاتایت C چیست؟");
-    expect(apiMocks.sendMessageStream).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", {
+      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+    })).toBeTruthy();
+    expect(screen.getByLabelText("متن پیام").value).toBe("");
+    await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1));
 
     await user.type(screen.getByLabelText("نام"), "علی");
     await user.type(screen.getByLabelText("شماره موبایل"), "09351234567");
-    await user.click(screen.getByRole("button", { name: "ذخیره و دریافت پاسخ" }));
+    await user.click(screen.getByRole("button", { name: "ثبت و مشاهده پاسخ" }));
 
-    await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1));
+    expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(1);
     expect(apiMocks.sendMessageStream.mock.calls[0][1].content).toBe("مگاتایت C چیست؟");
-    expect(screen.queryByRole("dialog", { name: "آشنایی کوتاه" })).toBeNull();
+    expect(screen.queryByRole("dialog", {
+      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+    })).toBeNull();
   });
 
   it("offers starter questions once and blocks a duplicate send while thinking", async () => {

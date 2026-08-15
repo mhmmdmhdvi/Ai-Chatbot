@@ -131,15 +131,6 @@ class ConversationMessagesView(APIView):
 
     def post(self, request, conversation_id):
         conversation = self._conversation(request, conversation_id)
-        if conversation.customer_id is None:
-            return Response(
-                {
-                    "detail": "برای دریافت پاسخ، لطفاً ابتدا نام و شماره خود را وارد کنید.",
-                    "code": "customer_details_required",
-                    "retryable": False,
-                },
-                status=status.HTTP_409_CONFLICT,
-            )
         serializer = CreateMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         content = serializer.validated_data["content"]

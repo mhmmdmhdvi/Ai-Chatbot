@@ -234,7 +234,8 @@ class ChatApiTests(TestCase):
         self.assertEqual(Customer.objects.count(), 0)
         self.assertIsNone(Conversation.objects.get(id=response.data["id"]).customer)
 
-    def test_first_message_is_blocked_until_customer_details_are_saved(self):
+    @override_settings(AI_PROVIDER="disabled", OPENAI_API_KEY="")
+    def test_first_message_can_generate_before_customer_details_are_saved(self):
         conversation_id = self.create_session(name="", phone_number="").data["id"]
 
         response = self.client.post(
@@ -243,10 +244,12 @@ class ChatApiTests(TestCase):
             format="json",
         )
 
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.data["code"], "customer_details_required")
-        self.assertEqual(Message.objects.count(), 0)
-        self.assertEqual(AIResponseLog.objects.count(), 0)
+        self.assertEqual(response.status_code, 201)
+        events = read_sse_events(response)
+        self.assertEqual(events[0][0], "customer")
+        self.assertEqual(events[-1][0], "error")
+        self.assertEqual(Message.objects.count(), 1)
+        self.assertEqual(AIResponseLog.objects.count(), 1)
 
     def test_customer_details_are_attached_with_normalized_persian_phone(self):
         conversation_id = self.create_session(name="", phone_number="").data["id"]

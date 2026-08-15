@@ -342,7 +342,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   const [contactPhone, setContactPhone] = useState("");
   const [contactError, setContactError] = useState("");
   const [contactSaving, setContactSaving] = useState(false);
-  const [pendingQuestion, setPendingQuestion] = useState(null);
   const inputRef = useRef(null);
   const contactNameRef = useRef(null);
   const scrollRef = useRef(null);
@@ -350,6 +349,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   const previousConversationIdRef = useRef(conversation?.id || null);
   const streamControllerRef = useRef(null);
   const turnInFlightRef = useRef(false);
+  const conversationRef = useRef(conversation);
   const activeNetworkTurn = isActiveNetworkStatus(activeTurn?.status);
 
   const resizeComposer = useCallback((textarea) => {
@@ -380,8 +380,11 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
     setContactPhone("");
     setContactError("");
     setContactSaving(false);
-    setPendingQuestion(null);
   }, []);
+
+  useEffect(() => {
+    conversationRef.current = conversation;
+  }, [conversation]);
 
   useEffect(() => {
     const currentConversationId = conversation?.id || null;
@@ -558,14 +561,19 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         controller.signal,
       );
       const finalCustomerMessage = savedCustomerMessage || result.customer_message;
-      onConversationChange({
-        ...turnConversation,
+      const latestConversation = conversationRef.current?.id === turnConversation.id
+        ? conversationRef.current
+        : turnConversation;
+      const completedConversation = {
+        ...latestConversation,
         messages: mergeMessagesById(
-          turnConversation.messages || [],
+          latestConversation.messages || [],
           finalCustomerMessage,
           result.assistant_message,
         ),
-      });
+      };
+      conversationRef.current = completedConversation;
+      onConversationChange(completedConversation);
       setActiveTurn((current) => current?.requestId === requestId ? {
         ...current,
         status: "completed",
@@ -579,10 +587,15 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         return;
       }
       if (savedCustomerMessage) {
-        onConversationChange({
-          ...turnConversation,
-          messages: mergeMessagesById(turnConversation.messages || [], savedCustomerMessage),
-        });
+        const latestConversation = conversationRef.current?.id === turnConversation.id
+          ? conversationRef.current
+          : turnConversation;
+        const failedConversation = {
+          ...latestConversation,
+          messages: mergeMessagesById(latestConversation.messages || [], savedCustomerMessage),
+        };
+        conversationRef.current = failedConversation;
+        onConversationChange(failedConversation);
       }
       setActiveTurn((current) => current?.requestId === requestId ? {
         ...current,
@@ -603,25 +616,16 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   const requestQuestion = (question) => {
     const trimmedQuestion = question.trim();
     if (!trimmedQuestion || activeNetworkTurn || !conversation || !online) return;
+    const requestId = createClientRequestId();
     if (!conversation.customer) {
-      setPendingQuestion({ question: trimmedQuestion, requestId: createClientRequestId() });
       setContactError("");
       setContactOpen(true);
-      return;
     }
-    runTurn({ question: trimmedQuestion, requestId: createClientRequestId() });
+    runTurn({ question: trimmedQuestion, requestId });
   };
 
-  const closeContactDialog = useCallback(() => {
-    if (contactSaving) return;
-    setContactOpen(false);
-    setContactError("");
-    setPendingQuestion(null);
-    window.requestAnimationFrame(() => inputRef.current?.focus());
-  }, [contactSaving]);
-
-  const saveCustomerAndSend = async () => {
-    if (contactSaving || !pendingQuestion || !conversation) return;
+  const saveCustomerAndReveal = async () => {
+    if (contactSaving || !conversation) return;
     if (!contactName.trim() || !contactPhone.trim()) {
       setContactError("لطفاً نام و شماره موبایل را کامل وارد کنید.");
       return;
@@ -634,17 +638,21 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
         name: contactName.trim(),
         phone_number: contactPhone.trim(),
       });
-      const queuedQuestion = pendingQuestion;
-      onConversationChange(updatedConversation);
+      const latestConversation = conversationRef.current?.id === updatedConversation.id
+        ? conversationRef.current
+        : updatedConversation;
+      const savedConversation = {
+        ...updatedConversation,
+        messages: mergeMessagesById(
+          updatedConversation.messages || [],
+          ...(latestConversation.messages || []),
+        ),
+      };
+      conversationRef.current = savedConversation;
+      onConversationChange(savedConversation);
       setContactOpen(false);
       setContactName("");
       setContactPhone("");
-      setPendingQuestion(null);
-      await runTurn({
-        question: queuedQuestion.question,
-        requestId: queuedQuestion.requestId,
-        conversationSnapshot: updatedConversation,
-      });
     } catch (requestError) {
       if (requestError instanceof ApiError && [401, 403].includes(requestError.status)) {
         onSessionExpired();
@@ -796,14 +804,13 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
 
       <Dialog
         busy={contactSaving}
-        cancelLabel="فعلاً نه"
-        confirmLabel="ذخیره و دریافت پاسخ"
-        description="برای بهبود کیفیت پاسخ لطفا نام و شماره خود را وارد کنید"
+        confirmLabel="ثبت و مشاهده پاسخ"
+        dismissible={false}
         initialFocusRef={contactNameRef}
-        onCancel={closeContactDialog}
-        onConfirm={saveCustomerAndSend}
+        onConfirm={saveCustomerAndReveal}
         open={contactOpen}
-        title="آشنایی کوتاه"
+        showCancel={false}
+        title="برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید"
         tone="primary"
       >
         <div className="space-y-4" dir="rtl">
@@ -815,7 +822,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
               className="min-h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-cyan-500 focus:bg-white focus:ring-4 focus:ring-cyan-100"
               maxLength={100}
               onChange={(event) => setContactName(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && saveCustomerAndSend()}
+              onKeyDown={(event) => event.key === "Enter" && saveCustomerAndReveal()}
               ref={contactNameRef}
               value={contactName}
             />
@@ -830,7 +837,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
               inputMode="tel"
               maxLength={30}
               onChange={(event) => setContactPhone(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && saveCustomerAndSend()}
+              onKeyDown={(event) => event.key === "Enter" && saveCustomerAndReveal()}
               placeholder="۰۹۱۲۱۲۳۴۵۶۷"
               value={contactPhone}
             />

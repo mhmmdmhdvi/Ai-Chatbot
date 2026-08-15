@@ -1470,8 +1470,8 @@ Preferred production starting point for additional headroom:
 - [x] Reuse one request UUID so retries never duplicate the saved customer message, completed responses replay without another AI call, and every real provider attempt remains auditable.
 - [x] Add starter-question suggestions that disappear after the conversation begins.
 - [x] Pause the inactivity timeout while an AI response is actively streaming.
-- [x] Collect and validate the customer's name and Iranian mobile number after the first queued question, before any AI request is allowed.
-- [x] Preserve the queued starter or manual question while customer details are saved to the conversation and Django Admin.
+- [x] Collect and validate the customer's name and Iranian mobile number after the first starter or manual question.
+- [x] Generate the first response behind a required blurred contact dialog, then reveal it after the customer details are saved to the conversation and Django Admin.
 - [ ] Receive visual approval for Phase 2 on localhost at the target kiosk resolution.
 
 ### API usage and cost visibility

@@ -230,11 +230,20 @@ describe("Persian kiosk application", () => {
     await user.type(composer, "قیمت مدل X200 چقدر است؟");
     await user.click(screen.getByRole("button", { name: "ارسال پیام" }));
 
-    expect(await screen.findByText("برای بهبود کیفیت پاسخ لطفا نام و شماره خود را وارد کنید")).toBeTruthy();
-    expect(fetchMock.mock.calls.some(([url]) => url.endsWith("/messages/"))).toBe(false);
+    const contactDialog = await screen.findByRole("dialog", {
+      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+    });
+    expect(contactDialog.parentElement.className).toContain("backdrop-blur-md");
+    await waitFor(() => expect(fetchMock.mock.calls.some(
+      ([url]) => url.endsWith("/messages/"),
+    )).toBe(true));
     await user.type(screen.getByLabelText("نام"), "محمد");
     await user.type(screen.getByLabelText("شماره موبایل"), "۰۹۱۲۱۲۳۴۵۶۷");
-    await user.click(screen.getByRole("button", { name: "ذخیره و دریافت پاسخ" }));
+    await user.click(screen.getByRole("button", { name: "ثبت و مشاهده پاسخ" }));
+
+    expect(screen.queryByRole("dialog", {
+      name: "برای بهبود کیفیت پاسخ نام و شماره خود را وارد کنید",
+    })).toBeNull();
 
     const message = await screen.findByText("قیمت مدل X200 چقدر است؟");
     expect(message.getAttribute("dir")).toBe("auto");
