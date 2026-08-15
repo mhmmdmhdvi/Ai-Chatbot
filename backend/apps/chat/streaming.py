@@ -28,7 +28,7 @@ def build_knowledge_query(conversation, customer_message):
     if extract_product_codes(current_question):
         return current_question
 
-    previous_customer_messages = (
+    previous_customer_messages = list(
         Message.objects.filter(
             conversation=conversation,
             role=Message.Role.CUSTOMER,
@@ -39,6 +39,12 @@ def build_knowledge_query(conversation, customer_message):
     for previous_message in previous_customer_messages:
         if extract_product_codes(previous_message.content):
             return f"{previous_message.content}\n{current_question}"
+
+    # Brief customer replies such as «سنگ», «نمای عمودی» or «فضای باز» depend
+    # on the immediately preceding customer turn. Preserve that context for
+    # retrieval even when no specific product code has been mentioned yet.
+    if previous_customer_messages and len(current_question.split()) <= 12:
+        return f"{previous_customer_messages[0].content}\n{current_question}"
     return current_question
 
 

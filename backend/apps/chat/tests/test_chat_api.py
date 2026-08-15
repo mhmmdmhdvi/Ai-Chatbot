@@ -147,6 +147,30 @@ class ChatApiTests(TestCase):
 
         self.assertEqual(build_knowledge_query(conversation, current), current.content)
 
+    def test_short_generic_follow_up_keeps_recent_customer_context(self):
+        conversation_id = self.create_session().data["id"]
+        conversation = Conversation.objects.get(pk=conversation_id)
+        previous = Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.CUSTOMER,
+            content="برای انتخاب چسب مناسب سنگ راهنمایی می‌خواهم.",
+        )
+        Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.ASSISTANT,
+            content="سنگ برای نمای عمودی، کف یا ترمیم استفاده می‌شود؟",
+        )
+        current = Message.objects.create(
+            conversation=conversation,
+            role=Message.Role.CUSTOMER,
+            content="نمای عمودی",
+        )
+
+        self.assertEqual(
+            build_knowledge_query(conversation, current),
+            f"{previous.content}\n{current.content}",
+        )
+
     def test_explicit_compound_products_replace_stale_product_context(self):
         cases = (
             (
