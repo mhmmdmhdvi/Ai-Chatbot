@@ -363,7 +363,9 @@ describe("ChatPanel turn experience", () => {
     expect(screen.queryByText("می‌توانید گفتگو را با یکی از این سؤال‌ها شروع کنید:")).toBeNull();
     expect(screen.getByText("یک لحظه، دارم اطلاعات مرتبط را بررسی می‌کنم")).toBeTruthy();
     expect(document.querySelector('.chat-status-pill')).toBeNull();
-    expect(document.querySelector('img[data-avatar-mood="thinking"]')).not.toBeNull();
+    const thinkingAvatar = document.querySelector('img[data-avatar-mood="thinking"]');
+    expect(thinkingAvatar).not.toBeNull();
+    expect(thinkingAvatar.className).toContain("assistant-avatar-animated");
     expect(document.querySelector(".chat-surface").getAttribute("aria-busy")).toBe("true");
   });
 

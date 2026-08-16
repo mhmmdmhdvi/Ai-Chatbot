@@ -1493,11 +1493,13 @@ Preferred production starting point for additional headroom:
 ### Phase 5 — character state system
 
 - [x] Create and optimize a consistent premium character set: greeting, neutral, curious, thinking, happy, careful, and goodbye.
-- [x] Preload transparent character assets and map them to deterministic UI states without another AI request.
+- [x] Load transparent character assets on demand and map them to deterministic UI states without another AI request.
 - [x] Add a distinct goodbye expression that activates from closing language.
 
 ### Phase 6 — final quality pass
 
+- [x] Polish the light chatbot hierarchy and replace active-chat blur/glass layers with lightweight opaque surfaces.
+- [x] Stop completed message avatars from animating continuously and keep motion only for the live response.
 - [ ] Verify touch, responsive layouts, accessibility, reduced motion, failure recovery, and production performance.
 
 ---

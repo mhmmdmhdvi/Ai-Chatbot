@@ -259,6 +259,7 @@ describe("Persian kiosk application", () => {
     expect(messageScroller.contains(composerDock)).toBe(false);
     expect(composerDock.className).toContain("shrink-0");
     expect(document.querySelector(".gradient-world").className).toContain("h-dvh");
+    expect(document.querySelector(".gradient-world").className).toContain("gradient-world-chat");
     expect(screen.getByRole("button", { name: "چت جدید" }).className).toContain("touch-button");
     const sessionRequest = fetchMock.mock.calls.find(
       ([url, options = {}]) => url === "/api/v1/sessions/" && options.method === "POST",
@@ -307,6 +308,7 @@ describe("Persian kiosk application", () => {
     expect(assistantCharacter).not.toBeNull();
     expect(assistantCharacter.getAttribute("src")).toContain("customer-guide-premium-careful");
     expect(assistantCharacter.getAttribute("data-avatar-mood")).toBe("careful");
+    expect(assistantCharacter.className).not.toContain("assistant-avatar-animated");
     expect(assistantMessageRow.querySelector("img.customer-avatar")).toBeNull();
     const streamRequest = fetchMock.mock.calls.find(
       ([url, options = {}]) => url.endsWith("/messages/") && options.method === "POST",

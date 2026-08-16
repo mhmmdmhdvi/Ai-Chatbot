@@ -163,15 +163,16 @@ function ThinkingIndicator() {
 }
 
 
-function AssistantAvatar({ className, mood = "neutral" }) {
+function AssistantAvatar({ animated = false, className, mood = "neutral" }) {
   const safeMood = ASSISTANT_AVATAR_MOODS.includes(mood) ? mood : "neutral";
 
   return (
     <img
       alt=""
       aria-hidden="true"
-      className={`${className} assistant-avatar-mood assistant-avatar-mood-${safeMood}`}
+      className={`${className} assistant-avatar-mood assistant-avatar-mood-${safeMood}${animated ? " assistant-avatar-animated" : ""}`}
       data-avatar-mood={safeMood}
+      decoding="async"
       key={safeMood}
       src={ASSISTANT_AVATAR_BY_MOOD[safeMood]}
     />
@@ -190,6 +191,7 @@ function MessageBubble({ message }) {
     <article className={`message-row flex w-full min-w-0 items-end ${customer ? "justify-end" : "justify-start"}`} dir="ltr">
       {!customer && (
         <AssistantAvatar
+          animated={Boolean(message.streaming)}
           className="message-avatar assistant-avatar shrink-0 object-contain object-bottom"
           mood={assistantMood}
         />
@@ -297,6 +299,7 @@ function IntakeScene({ busy, error, onStart, online }) {
     <main className="intake-stage mx-auto grid min-h-0 w-full max-w-6xl flex-1 place-items-center overflow-y-auto p-4 sm:p-8">
       <section className="intake-popover" aria-label="شروع گفتگوی مشتری">
         <AssistantAvatar
+          animated
           className="intake-character"
           mood="greeting"
         />
@@ -396,14 +399,6 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
   }, [conversation, resetLocalFlow]);
 
   useEffect(() => () => streamControllerRef.current?.abort(), []);
-
-  useEffect(() => {
-    if (typeof globalThis.Image !== "function") return;
-    Object.values(ASSISTANT_AVATAR_BY_MOOD).forEach((source) => {
-      const image = new globalThis.Image();
-      image.src = source;
-    });
-  }, []);
 
   const handleIdleTimeout = useCallback(() => {
     const conversationId = conversation?.id;
@@ -765,7 +760,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
           <p className="sr-only" aria-atomic="true" aria-live="polite" role="status">{statusText}</p>
           <div className="chat-frame flex min-h-0 flex-1">
             <section aria-busy={activeNetworkTurn} className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[2rem]">
-              <header className="chat-toolbar relative z-[5] flex shrink-0 items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-4" dir="ltr">
+              <header className="chat-toolbar relative z-[5] flex shrink-0 items-center justify-between gap-3 px-3 py-2 sm:px-5" dir="ltr">
                 <button className="new-customer-button touch-button inline-flex items-center gap-2 rounded-2xl px-4 text-[15px] font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:text-base" disabled={activeNetworkTurn} onClick={onNewCustomer} type="button">
                   <Icon name="refresh" size={19} />
                   چت جدید
@@ -778,7 +773,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
                 onScroll={handleMessageScroll}
                 ref={scrollRef}
               >
-                <div className="mx-auto flex w-full max-w-4xl flex-col gap-4 sm:gap-6">
+                <div className={`mx-auto flex w-full max-w-4xl flex-col gap-4 sm:gap-6 ${showStarterQuestions ? "chat-empty-state" : ""}`}>
                   {displayMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
                   {showStarterQuestions && (
                     <StarterQuestions disabled={!online} onSelect={selectStarterQuestion} />
