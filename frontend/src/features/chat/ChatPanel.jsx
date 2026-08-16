@@ -766,7 +766,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
           <div className="chat-frame flex min-h-0 flex-1">
             <section aria-busy={activeNetworkTurn} className="chat-surface relative z-[1] flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[2rem]">
               <header className="chat-toolbar relative z-[5] flex shrink-0 items-center justify-between gap-3 px-3 py-3 sm:px-5 sm:py-4" dir="ltr">
-                <button className="new-customer-button touch-button inline-flex items-center gap-2 rounded-2xl px-4 text-[15px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:text-base" disabled={activeNetworkTurn} onClick={onNewCustomer} type="button">
+                <button className="new-customer-button touch-button inline-flex items-center gap-2 rounded-2xl px-4 text-[15px] font-bold text-slate-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-5 sm:text-base" disabled={activeNetworkTurn} onClick={onNewCustomer} type="button">
                   <Icon name="refresh" size={19} />
                   چت جدید
                 </button>
@@ -786,7 +786,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
                 </div>
               </div>
 
-              <footer className="composer-dock shrink-0 border-t border-white/10 px-3 pb-3 pt-3 sm:px-6 sm:pb-5 sm:pt-4">
+              <footer className="composer-dock shrink-0 border-t border-cyan-900/10 px-3 pb-3 pt-3 sm:px-6 sm:pb-5 sm:pt-4">
                 <div className="mx-auto w-full max-w-4xl">
                   {activeTurn?.status === "failed" && (
                     <TurnFailure
@@ -797,7 +797,7 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
                     />
                   )}
 
-                  <form className="chat-composer flex items-end gap-2.5 rounded-[1.4rem] border border-white/60 bg-white p-2 transition focus-within:border-cyan-300 focus-within:ring-4 focus-within:ring-cyan-300/20" onSubmit={submitMessage}>
+                  <form className="chat-composer flex items-end gap-2.5 rounded-[1.4rem] border border-cyan-900/10 bg-white p-2 transition focus-within:border-cyan-400 focus-within:ring-4 focus-within:ring-cyan-300/20" onSubmit={submitMessage}>
                     <textarea
                       aria-label="متن پیام"
                       autoFocus

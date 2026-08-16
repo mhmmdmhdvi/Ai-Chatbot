@@ -75,8 +75,8 @@ export default function KioskShell({ onSessionExpired }) {
       {loading ? (
         <main className="grid flex-1 place-items-center p-6" role="status">
           <div className="text-center">
-            <span className="spinner mx-auto !h-9 !w-9 !border-cyan-300 !border-l-transparent" />
-            <p className="mt-4 font-bold text-white/80">در حال آماده‌سازی کیوسک…</p>
+            <span className="spinner mx-auto !h-9 !w-9 !border-cyan-600 !border-l-transparent" />
+            <p className="mt-4 font-bold text-slate-600">در حال آماده‌سازی کیوسک…</p>
           </div>
         </main>
       ) : loadError ? (
