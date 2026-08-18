@@ -41,6 +41,24 @@ function KeyboardHarness({ onSubmit = () => {} }) {
 
 
 describe("Megatite virtual keyboard", () => {
+  it("uses physical Persian keyboard rows", async () => {
+    const user = userEvent.setup();
+    render(<KeyboardHarness />);
+
+    await user.click(screen.getByLabelText("نام"));
+    await screen.findByRole("region", { name: /صفحه‌کلید مگاتایت برای نام/ });
+
+    const rows = [...document.querySelectorAll(".virtual-keyboard-row")];
+    const rowText = rows.map((row) => [...row.querySelectorAll(".virtual-key")].map((key) => key.textContent));
+
+    expect(rowText).toEqual([
+      ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"],
+      ["ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"],
+      ["ش", "س", "ی", "ب", "ل", "ا", "ت", "ن", "م", "ک", "گ"],
+      ["ظ", "ط", "ز", "ر", "ذ", "د", "پ", "و", "،", "؟"],
+    ]);
+  });
+
   it("types Persian and Latin text, deletes, and closes explicitly", async () => {
     const user = userEvent.setup();
     render(<KeyboardHarness />);

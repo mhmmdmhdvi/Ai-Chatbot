@@ -4,10 +4,9 @@ import { createPortal } from "react-dom";
 
 const PERSIAN_ROWS = [
   ["۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹", "۰"],
-  ["ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح"],
-  ["ج", "چ", "ش", "س", "ی", "ب", "ل", "ا", "ت"],
-  ["ن", "م", "ک", "گ", "ظ", "ط", "ز", "ر", "ذ"],
-  ["د", "پ", "و", "،", "؟"],
+  ["ض", "ص", "ث", "ق", "ف", "غ", "ع", "ه", "خ", "ح", "ج", "چ"],
+  ["ش", "س", "ی", "ب", "ل", "ا", "ت", "ن", "م", "ک", "گ"],
+  ["ظ", "ط", "ز", "ر", "ذ", "د", "پ", "و", "،", "؟"],
 ];
 
 const LATIN_ROWS = [
@@ -190,7 +189,7 @@ export default function VirtualKeyboard() {
 
         <div className="virtual-keyboard-rows" dir="ltr">
           {rows.map((row, rowIndex) => (
-            <div className="virtual-keyboard-row" key={`${layout}-${rowIndex}`}>
+            <div className={`virtual-keyboard-row virtual-keyboard-row-${rowIndex}`} key={`${layout}-${rowIndex}`}>
               {row.map((key) => (
                 <button
                   aria-label={key === "⌫" ? "پاک کردن" : key}
