@@ -797,8 +797,10 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
                       aria-label="متن پیام"
                       autoFocus
                       className="chat-input max-h-32 min-h-14 min-w-0 flex-1 resize-none bg-transparent px-3 py-3.5 text-base leading-7 outline-none placeholder:text-slate-400 sm:px-4 sm:text-[17px] sm:leading-8"
+                      data-virtual-keyboard="persian"
                       disabled={composerDisabled}
                       enterKeyHint="send"
+                      inputMode="none"
                       maxLength={2000}
                       onChange={handleContentChange}
                       onKeyDown={handleTextareaKeyDown}
@@ -843,6 +845,10 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
               aria-label="نام"
               autoComplete="name"
               className="min-h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base text-slate-900 outline-none transition focus:border-cyan-500 focus:bg-white focus:ring-4 focus:ring-cyan-100"
+              data-keyboard-next="contact-phone"
+              data-virtual-keyboard="persian"
+              id="contact-name"
+              inputMode="none"
               maxLength={100}
               onChange={(event) => setContactName(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && saveCustomerAndReveal()}
@@ -856,8 +862,10 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
               aria-label="شماره موبایل"
               autoComplete="tel"
               className="min-h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-left text-base text-slate-900 outline-none transition focus:border-cyan-500 focus:bg-white focus:ring-4 focus:ring-cyan-100"
+              data-virtual-keyboard="numeric"
               dir="ltr"
-              inputMode="tel"
+              id="contact-phone"
+              inputMode="none"
               maxLength={30}
               onChange={(event) => setContactPhone(event.target.value)}
               onKeyDown={(event) => event.key === "Enter" && saveCustomerAndReveal()}

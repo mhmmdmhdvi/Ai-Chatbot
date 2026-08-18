@@ -64,6 +64,8 @@ describe("Persian kiosk application", () => {
     expect(screen.queryByText("برای فعال‌سازی دستیار، وارد حساب کاربری کیوسک شوید.")).toBeNull();
     expect(screen.queryByText("رمز عبور فقط برای ورود ارسال می‌شود و در مرورگر ذخیره نخواهد شد.")).toBeNull();
     expect(screen.getByLabelText("نام کاربری").getAttribute("dir")).toBe("ltr");
+    expect(screen.getByLabelText("نام کاربری").dataset.virtualKeyboard).toBe("latin");
+    expect(screen.getByLabelText("رمز عبور").getAttribute("inputmode")).toBe("none");
     expect(screen.queryByText("شروع گفتگو")).toBeNull();
   });
 
@@ -267,6 +269,8 @@ describe("Persian kiosk application", () => {
     expect(JSON.parse(sessionRequest[1].body)).toEqual({});
     const composer = screen.getByLabelText("متن پیام");
     expect(composer.getAttribute("enterkeyhint")).toBe("send");
+    expect(composer.dataset.virtualKeyboard).toBe("persian");
+    expect(composer.getAttribute("inputmode")).toBe("none");
     expect(composer.className).toContain("chat-input");
     const sendButton = screen.getByRole("button", { name: "ارسال پیام" });
     expect(sendButton.className).toContain("h-14");
@@ -282,6 +286,8 @@ describe("Persian kiosk application", () => {
     expect(contactDialog.className).toContain("dialog-panel");
     expect(contactDialog.className).toContain("overflow-y-auto");
     expect(screen.getByRole("button", { name: "منصرف شدم" })).toBeTruthy();
+    expect(screen.getByLabelText("نام").dataset.keyboardNext).toBe("contact-phone");
+    expect(screen.getByLabelText("شماره موبایل").dataset.virtualKeyboard).toBe("numeric");
     await waitFor(() => expect(fetchMock.mock.calls.some(
       ([url]) => url.endsWith("/messages/"),
     )).toBe(true));

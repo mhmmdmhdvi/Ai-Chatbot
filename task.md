@@ -1484,7 +1484,8 @@ Preferred production starting point for additional headroom:
 ### Phase 3 — kiosk navigation and session controls
 
 - [ ] Add a scroll-to-latest control and refine the new-chat and inactivity dialogs.
-- [ ] Add fullscreen entry/recovery and Windows on-screen-keyboard behavior.
+- [x] Add a branded Persian/English/numeric touch keyboard that suppresses the operating-system keyboard and resizes the kiosk safely.
+- [ ] Add fullscreen entry/recovery behavior.
 
 ### Phase 4 — Persian technical presentation
 

@@ -69,7 +69,11 @@ export default function LoginPage({ onLogin }) {
                     autoCapitalize="none"
                     autoComplete="username"
                     className="min-w-0 flex-1 bg-transparent py-4 outline-none placeholder:text-slate-400"
+                    data-keyboard-next="login-password"
+                    data-virtual-keyboard="latin"
                     dir="ltr"
+                    id="login-username"
+                    inputMode="none"
                     maxLength={150}
                     onChange={(event) => setUsername(event.target.value)}
                     placeholder="Username"
@@ -86,7 +90,10 @@ export default function LoginPage({ onLogin }) {
                   <input
                     autoComplete="current-password"
                     className="min-w-0 flex-1 bg-transparent py-4 outline-none placeholder:text-slate-400"
+                    data-virtual-keyboard="latin"
                     dir="ltr"
+                    id="login-password"
+                    inputMode="none"
                     maxLength={128}
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="Password"

@@ -12,6 +12,7 @@
   background: var(--megatite-midnight);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  --virtual-keyboard-height: clamp(21rem, 38dvh, 22rem);
 }
 
 * {
@@ -39,6 +40,16 @@ body {
   height: 100vh;
   height: 100dvh;
   min-height: 0;
+}
+
+html.virtual-keyboard-visible .app-background,
+html.virtual-keyboard-visible .login-stage {
+  height: calc(100dvh - var(--virtual-keyboard-height)) !important;
+  min-height: 0 !important;
+}
+
+html.virtual-keyboard-visible .dialog-backdrop {
+  bottom: var(--virtual-keyboard-height);
 }
 
 button,
@@ -427,6 +438,193 @@ textarea:focus-visible {
 .touch-button:focus-visible {
   outline: none;
   box-shadow: 0 0 0 4px rgb(13 148 136 / 18%);
+}
+
+.virtual-keyboard {
+  position: fixed;
+  z-index: 100;
+  bottom: 0;
+  left: 50%;
+  width: min(calc(100vw - clamp(0.75rem, 3vw, 2.5rem)), 88rem);
+  height: var(--virtual-keyboard-height);
+  overflow: hidden;
+  border: 1px solid rgb(103 232 249 / 42%);
+  border-bottom: 0;
+  border-radius: clamp(1.1rem, 2.2vw, 1.8rem) clamp(1.1rem, 2.2vw, 1.8rem) 0 0;
+  background:
+    radial-gradient(circle at 16% 20%, rgb(45 212 191 / 16%), transparent 20rem),
+    radial-gradient(circle at 88% 100%, rgb(20 121 233 / 28%), transparent 26rem),
+    linear-gradient(145deg, #071a2c 0%, #062b48 48%, #031661 100%);
+  box-shadow: 0 -1rem 3rem rgb(2 8 22 / 26%);
+  color: white;
+  direction: rtl;
+  transform: translateX(-50%);
+  user-select: none;
+}
+
+.virtual-keyboard-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  color: rgb(255 255 255 / 3.5%);
+  font-size: clamp(5rem, 14vw, 13rem);
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  pointer-events: none;
+  transform: translate(-50%, -48%);
+  white-space: nowrap;
+}
+
+.virtual-keyboard-panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  width: min(100%, 88rem);
+  height: 100%;
+  margin-inline: auto;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.55rem clamp(0.65rem, 2vw, 1.5rem) max(0.6rem, env(safe-area-inset-bottom));
+}
+
+.virtual-keyboard-header {
+  display: grid;
+  min-height: 2.2rem;
+  grid-template-columns: minmax(8rem, 1fr) auto minmax(8rem, 1fr);
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.virtual-keyboard-brand {
+  display: flex;
+  align-items: baseline;
+  justify-self: start;
+  gap: 0.6rem;
+  color: #c7f9ff;
+  direction: ltr;
+}
+
+.virtual-keyboard-brand strong {
+  font-size: 0.86rem;
+  font-weight: 950;
+  letter-spacing: 0.1em;
+}
+
+.virtual-keyboard-brand span,
+.virtual-keyboard-field {
+  color: rgb(226 247 255 / 66%);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.virtual-keyboard-field {
+  max-width: 18rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.virtual-keyboard-close {
+  min-height: 2rem;
+  justify-self: end;
+  border: 1px solid rgb(165 243 252 / 20%);
+  border-radius: 0.7rem;
+  background: rgb(255 255 255 / 8%);
+  padding-inline: 0.75rem;
+  color: #e6fbff;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.virtual-keyboard-rows {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.32rem;
+}
+
+.virtual-keyboard-row,
+.virtual-keyboard-controls {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  justify-content: center;
+  gap: clamp(0.22rem, 0.55vw, 0.55rem);
+}
+
+.virtual-key {
+  min-width: 0;
+  flex: 1 1 0;
+  border: 1px solid rgb(165 243 252 / 18%);
+  border-radius: clamp(0.55rem, 1vw, 0.85rem);
+  background: linear-gradient(180deg, rgb(255 255 255 / 15%), rgb(255 255 255 / 8%));
+  color: #f8fdff;
+  font-size: clamp(0.92rem, 1.7vw, 1.25rem);
+  font-weight: 850;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 15%),
+    0 0.22rem 0.55rem rgb(1 8 22 / 18%);
+  transition: background-color 100ms ease, border-color 100ms ease, transform 100ms ease;
+  touch-action: manipulation;
+}
+
+.virtual-key:hover,
+.virtual-key:active {
+  border-color: rgb(94 234 212 / 58%);
+  background: linear-gradient(180deg, rgb(45 212 191 / 34%), rgb(20 121 233 / 22%));
+}
+
+.virtual-key:active {
+  transform: translateY(1px) scale(0.985);
+}
+
+.virtual-key-action,
+.virtual-key-language,
+.virtual-key-wide {
+  background: rgb(39 216 229 / 14%);
+}
+
+.virtual-keyboard-controls {
+  min-height: 2.85rem;
+  flex: 0 0 clamp(2.85rem, 7dvh, 3.4rem);
+  margin-top: 0.05rem;
+}
+
+.virtual-keyboard-controls .virtual-key-wide,
+.virtual-keyboard-controls .virtual-key-language {
+  flex: 0.9;
+}
+
+.virtual-key-space {
+  flex: 5;
+  color: rgb(226 247 255 / 78%);
+  font-size: 0.78rem;
+}
+
+.virtual-key-enter,
+.numeric-enter-key {
+  flex: 1.65;
+  border-color: rgb(94 234 212 / 46%);
+  background: linear-gradient(135deg, #0d9488, #1479e9);
+}
+
+.virtual-keyboard-numeric .virtual-keyboard-rows {
+  width: min(100%, 30rem);
+  align-self: center;
+}
+
+.virtual-keyboard-numeric .virtual-key {
+  font-size: 1.2rem;
+}
+
+.numeric-enter-key {
+  width: min(100%, 30rem);
+  min-height: 2.8rem;
+  flex: 0 0 2.8rem;
+  align-self: center;
+  font-size: 0.9rem !important;
 }
 
 .spinner {
@@ -1482,6 +1680,24 @@ textarea:focus-visible {
 }
 
 @media (max-height: 720px) and (min-width: 640px) {
+  :root {
+    --virtual-keyboard-height: 17rem;
+  }
+
+  .virtual-keyboard-panel {
+    gap: 0.22rem;
+    padding-top: 0.35rem;
+  }
+
+  .virtual-keyboard-row,
+  .virtual-keyboard-controls {
+    gap: 0.28rem;
+  }
+
+  .virtual-keyboard-header {
+    min-height: 1.75rem;
+  }
+
   .chat-stage {
     padding: 0.65rem 1rem;
   }
