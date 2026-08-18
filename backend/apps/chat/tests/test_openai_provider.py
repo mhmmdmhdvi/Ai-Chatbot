@@ -68,6 +68,8 @@ class OpenAIProviderTests(SimpleTestCase):
         self.assertIn("تأیید کاربرد ناایمن", request["instructions"])
         self.assertIn("برای اینکه پیشنهاد دقیق‌تری بدهم", request["instructions"])
         self.assertIn("دو تا چهار گزینه کوتاه", request["instructions"])
+        self.assertIn("راهنمای مشاور VERIFIED", request["instructions"])
+        self.assertIn("دیتاشیت VERIFIED اختصاصی همان محصول مقدم است", request["instructions"])
         self.assertIn("در اطلاعات فعلی اعلام نشده", request["instructions"])
         self.assertIn("کاشت میلگرد", request["instructions"])
         self.assertIn("مهندس سازه", request["instructions"])

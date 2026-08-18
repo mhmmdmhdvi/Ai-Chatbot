@@ -782,6 +782,7 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [x] Detect duplicate content using checksums.
 - [x] Support replace, deactivate, and rollback semantics.
 - [x] Add controlled management commands for import/reindex.
+- [x] Add strict UTF-8 Markdown import for curated, human-reviewed advisor guides.
 
 ### Current PDF audit — 2026-08-10
 
@@ -829,6 +830,7 @@ Document extraction and lifecycle quality determine the reliability of the later
 - [x] Add canonical HC3000 aliases and retrieval isolation so HC3000 cannot leak into Megatite C or the conflicting legacy HC catalog record.
 - [ ] Import the reviewed S/C/SF supplements and HC3000 document on production, verify their acceptance questions, then deactivate only the exact legacy HC3000 source.
 - [x] Render the assistant's safe bold and list formatting correctly in the Persian chat UI without interpreting customer Markdown or raw HTML.
+- [x] Split the Megatite AI Advisor training guide into a compact prompt reference and a curated Markdown knowledge guide; keep product-specific verified datasheets authoritative for exact technical facts.
 
 ### Files/architecture
 
@@ -838,6 +840,7 @@ Document extraction and lifecycle quality determine the reliability of the later
 - `backend/apps/knowledge/repository.py`
 - `backend/apps/knowledge/management/commands/import_documents.py`
 - `backend/apps/knowledge/management/commands/import_verified_docx.py`
+- `backend/apps/knowledge/management/commands/import_verified_markdown.py`
 - `backend/apps/knowledge/management/commands/extract_documents_with_vision.py`
 - `backend/apps/knowledge/vision_extraction.py`
 

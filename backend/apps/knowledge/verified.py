@@ -11,6 +11,7 @@ from django.db.models import Max
 
 from .chunking import chunk_pages
 from .extractors.docx import DocxExtractionError, extract_docx
+from .extractors.markdown import MarkdownExtractionError, extract_markdown
 from .extractors.pdf import ExtractedPage, PdfExtractionError
 from .ingestion import file_sha256, index_document_version
 from .models import Document, DocumentChunk, DocumentVersion
@@ -32,6 +33,17 @@ class VerifiedDocxInspection:
     character_count: int
     block_count: int
     table_count: int
+    chunk_count: int
+    sample_text: str
+
+
+@dataclass(frozen=True)
+class VerifiedMarkdownInspection:
+    path: Path
+    sha256: str
+    file_size: int
+    character_count: int
+    block_count: int
     chunk_count: int
     sample_text: str
 
@@ -84,6 +96,20 @@ def _validate_docx_source(path):
     return source
 
 
+def _validate_markdown_source(path):
+    source = Path(path)
+    if source.suffix.casefold() not in {".md", ".markdown"}:
+        raise MarkdownExtractionError("Only Markdown files are supported.")
+    if not source.is_file():
+        raise MarkdownExtractionError("The Markdown file does not exist or is not a regular file.")
+    file_size = source.stat().st_size
+    if file_size == 0:
+        raise MarkdownExtractionError("The Markdown file is empty.")
+    if file_size > settings.KNOWLEDGE_MAX_FILE_BYTES:
+        raise MarkdownExtractionError("The Markdown file exceeds the configured size limit.")
+    return source
+
+
 def inspect_verified_docx(path, *, sample_characters=0):
     source = _validate_docx_source(path)
     extraction = extract_docx(
@@ -98,6 +124,26 @@ def inspect_verified_docx(path, *, sample_characters=0):
         character_count=extraction.character_count,
         block_count=extraction.block_count,
         table_count=extraction.table_count,
+        chunk_count=len(chunks),
+        sample_text=(
+            extraction.pages[0].text[:sample_characters] if sample_characters else ""
+        ),
+    )
+
+
+def inspect_verified_markdown(path, *, sample_characters=0):
+    source = _validate_markdown_source(path)
+    extraction = extract_markdown(
+        source,
+        max_bytes=settings.KNOWLEDGE_MAX_FILE_BYTES,
+    )
+    chunks = chunk_pages(extraction.pages)
+    return VerifiedMarkdownInspection(
+        path=source,
+        sha256=file_sha256(source),
+        file_size=source.stat().st_size,
+        character_count=extraction.character_count,
+        block_count=extraction.block_count,
         chunk_count=len(chunks),
         sample_text=(
             extraction.pages[0].text[:sample_characters] if sample_characters else ""
@@ -130,6 +176,73 @@ def import_verified_docx(path, *, source_key=None, title=None, embed=False):
     chunks = chunk_pages(extraction.pages)
     if not chunks:
         raise DocxExtractionError("The DOCX file produced no knowledge chunks.")
+
+    with transaction.atomic():
+        document, _ = Document.objects.get_or_create(
+            source_key=normalized_key,
+            defaults={"title": normalized_title},
+        )
+        latest_number = document.versions.aggregate(value=Max("version_number"))["value"] or 0
+        version = DocumentVersion(
+            document=document,
+            version_number=latest_number + 1,
+            original_filename=source.name,
+            sha256=checksum,
+            file_size=source.stat().st_size,
+            page_count=1,
+            extracted_character_count=extraction.character_count,
+            ocr_used=False,
+            content_verified=True,
+            status=DocumentVersion.Status.PENDING,
+        )
+        with source.open("rb") as source_file:
+            version.file.save(source.name, File(source_file), save=False)
+        version.save()
+        DocumentChunk.objects.bulk_create(
+            [
+                DocumentChunk(
+                    version=version,
+                    page_number=chunk.page_number,
+                    chunk_index=chunk.chunk_index,
+                    content=chunk.content,
+                    content_hash=chunk.content_hash,
+                    character_count=len(chunk.content),
+                )
+                for chunk in chunks
+            ],
+            batch_size=500,
+        )
+
+    if embed:
+        index_document_version(version)
+    return VerifiedImportResult(version=version, created=True, duplicate=False)
+
+
+def import_verified_markdown(path, *, source_key=None, title=None, embed=False):
+    source = _validate_markdown_source(path)
+    checksum = file_sha256(source)
+    duplicate = DocumentVersion.objects.filter(sha256=checksum).select_related(
+        "document"
+    ).first()
+    if duplicate:
+        if embed and duplicate.status != DocumentVersion.Status.READY:
+            index_document_version(duplicate)
+        return VerifiedImportResult(version=duplicate, created=False, duplicate=True)
+
+    extraction = extract_markdown(
+        source,
+        max_bytes=settings.KNOWLEDGE_MAX_FILE_BYTES,
+    )
+    normalized_key = normalize_source_key(source_key or f"verified:markdown:{source.stem}")
+    normalized_title = normalize_persian_text(title or source.stem)
+    if not normalized_key:
+        raise MarkdownExtractionError("The Markdown source identifier is invalid.")
+    if not normalized_title:
+        raise MarkdownExtractionError("The Markdown title is invalid.")
+
+    chunks = chunk_pages(extraction.pages)
+    if not chunks:
+        raise MarkdownExtractionError("The Markdown file produced no knowledge chunks.")
 
     with transaction.atomic():
         document, _ = Document.objects.get_or_create(
