@@ -113,6 +113,34 @@ export function getAssistantAvatarMood(message) {
 }
 
 
+export function parseAssistantQuickReplies(content) {
+  const options = [];
+  const visibleLines = [];
+
+  for (const line of String(content || "").replace(/\r\n?/gu, "\n").split("\n")) {
+    const match = line.match(/^\s*گزینه‌های سریع\s*[:：]\s*(.+?)\s*$/u);
+    if (!match) {
+      visibleLines.push(line);
+      continue;
+    }
+
+    match[1]
+      .split("|")
+      .map((option) => option.trim())
+      .filter(Boolean)
+      .slice(0, 4)
+      .forEach((option) => {
+        if (!options.includes(option)) options.push(option);
+      });
+  }
+
+  return {
+    content: visibleLines.join("\n").trim(),
+    options,
+  };
+}
+
+
 export function isRetryableTurnError(error) {
   if (typeof error?.data?.retryable === "boolean") return error.data.retryable;
   return !error?.status
@@ -180,9 +208,12 @@ function AssistantAvatar({ animated = false, className, mood = "neutral" }) {
 }
 
 
-function MessageBubble({ message }) {
+function MessageBubble({ disabled = false, message, onQuickReply }) {
   const customer = message.role === "customer";
   const assistantMood = customer ? null : getAssistantAvatarMood(message);
+  const quickReply = customer || message.streaming || message.failed
+    ? { content: message.content, options: [] }
+    : parseAssistantQuickReplies(message.content);
   const time = !message.local && message.created_at
     ? new Intl.DateTimeFormat("fa-IR", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.created_at))
     : "";
@@ -206,7 +237,22 @@ function MessageBubble({ message }) {
         {message.streaming && !message.content ? (
           <ThinkingIndicator />
         ) : (
-          <MessageContent content={message.content} formatted={!customer} />
+          <MessageContent content={quickReply.content} formatted={!customer} />
+        )}
+        {!customer && quickReply.options.length > 0 && (
+          <div className="quick-reply-options" aria-label="گزینه‌های سریع" role="group">
+            {quickReply.options.map((option) => (
+              <button
+                className="quick-reply-option touch-button"
+                disabled={disabled}
+                key={option}
+                onClick={() => onQuickReply?.(option)}
+                type="button"
+              >
+                {option}
+              </button>
+            ))}
+          </div>
         )}
         {message.streaming && message.content && (
           <div className="streaming-progress" aria-hidden="true">
@@ -239,10 +285,7 @@ function MessageBubble({ message }) {
 function StarterQuestions({ disabled, onSelect }) {
   return (
     <section className="starter-prompts" aria-labelledby="starter-prompts-title">
-      <div className="starter-prompts-heading">
-        <Icon name="sparkles" size={18} />
-        <h2 id="starter-prompts-title">می‌توانید گفتگو را با یکی از این سؤال‌ها شروع کنید:</h2>
-      </div>
+      <h2 className="sr-only" id="starter-prompts-title">سؤال‌های پیشنهادی شروع گفتگو</h2>
       <div className="starter-prompts-grid">
         {STARTER_QUESTIONS.map((question) => (
           <button
@@ -774,7 +817,14 @@ export default function ChatPanel({ conversation, onConversationChange, onNewCus
                 ref={scrollRef}
               >
                 <div className={`mx-auto flex w-full max-w-4xl flex-col gap-4 sm:gap-6 ${showStarterQuestions ? "chat-empty-state" : ""}`}>
-                  {displayMessages.map((message) => <MessageBubble key={message.id} message={message} />)}
+                  {displayMessages.map((message) => (
+                    <MessageBubble
+                      disabled={composerDisabled}
+                      key={message.id}
+                      message={message}
+                      onQuickReply={requestQuestion}
+                    />
+                  ))}
                   {showStarterQuestions && (
                     <StarterQuestions disabled={!online} onSelect={selectStarterQuestion} />
                   )}

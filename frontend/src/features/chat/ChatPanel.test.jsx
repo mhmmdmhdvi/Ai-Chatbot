@@ -43,6 +43,7 @@ import {
   isNearMessageBottom,
   isRetryableTurnError,
   mergeMessagesById,
+  parseAssistantQuickReplies,
   shouldSubmitOnEnter,
 } from "./ChatPanel";
 import ChatPanel from "./ChatPanel";
@@ -150,6 +151,19 @@ describe("ChatPanel layout helpers", () => {
     expect(getAssistantAvatarMood({ content: "بله، این محصول برای این کاربرد مناسب است." })).toBe("happy");
     expect(getAssistantAvatarMood({ content: "جنس سطح موردنظر شما چیست؟" })).toBe("curious");
     expect(getAssistantAvatarMood({ content: "زمان پخت اولیه ۱۲ ساعت است." })).toBe("neutral");
+  });
+
+  it("extracts assistant quick replies from the controlled option line", () => {
+    expect(parseAssistantQuickReplies(
+      "برای پیشنهاد دقیق‌تر، محل اجرا را مشخص کنیم.\nگزینه‌های سریع: نمای بیرونی | فضای داخلی | سطح زیرسقفی",
+    )).toEqual({
+      content: "برای پیشنهاد دقیق‌تر، محل اجرا را مشخص کنیم.",
+      options: ["نمای بیرونی", "فضای داخلی", "سطح زیرسقفی"],
+    });
+    expect(parseAssistantQuickReplies("پاسخ عادی بدون گزینه")).toEqual({
+      content: "پاسخ عادی بدون گزینه",
+      options: [],
+    });
   });
 
   it("uses explicit server retry guidance and safe transport fallbacks", () => {
@@ -424,5 +438,50 @@ describe("ChatPanel turn experience", () => {
     expect(screen.getAllByText(question)).toHaveLength(1);
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByLabelText("متن پیام").disabled).toBe(false);
+  });
+
+  it("renders assistant quick reply options and sends the tapped choice", async () => {
+    apiMocks.sendMessageStream
+      .mockResolvedValueOnce({
+        customer_message: {
+          id: "customer-question",
+          role: "customer",
+          content: "برای سنگ نما چه پیشنهادی دارید؟",
+          created_at: "2026-08-11T12:03:00Z",
+        },
+        assistant_message: {
+          id: "assistant-options",
+          role: "assistant",
+          content: "برای پیشنهاد دقیق‌تر، محل اجرا را مشخص کنیم.\nگزینه‌های سریع: نمای بیرونی | فضای داخلی",
+          created_at: "2026-08-11T12:03:02Z",
+        },
+      })
+      .mockResolvedValueOnce({
+        customer_message: {
+          id: "customer-choice",
+          role: "customer",
+          content: "نمای بیرونی",
+          created_at: "2026-08-11T12:03:05Z",
+        },
+        assistant_message: {
+          id: "assistant-follow-up",
+          role: "assistant",
+          content: "برای نمای بیرونی، ابتدا شرایط نصب و وزن سنگ را بررسی می‌کنیم.",
+          created_at: "2026-08-11T12:03:06Z",
+        },
+      });
+
+    const user = userEvent.setup();
+    render(<ChatHarness />);
+    await user.type(screen.getByLabelText("متن پیام"), "برای سنگ نما چه پیشنهادی دارید؟");
+    await user.click(screen.getByRole("button", { name: "ارسال پیام" }));
+
+    expect(await screen.findByText("برای پیشنهاد دقیق‌تر، محل اجرا را مشخص کنیم.")).toBeTruthy();
+    expect(screen.queryByText(/گزینه‌های سریع/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "نمای بیرونی" }));
+
+    await waitFor(() => expect(apiMocks.sendMessageStream).toHaveBeenCalledTimes(2));
+    expect(apiMocks.sendMessageStream.mock.calls[1][1].content).toBe("نمای بیرونی");
+    expect(await screen.findByText("برای نمای بیرونی، ابتدا شرایط نصب و وزن سنگ را بررسی می‌کنیم.")).toBeTruthy();
   });
 });
