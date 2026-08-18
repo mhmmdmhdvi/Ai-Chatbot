@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew AI Chatbot TLS certificate
+After=docker.service network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/ai-chatbot
+ExecStart=/opt/ai-chatbot/scripts/deploy/renew-certificates.sh
